@@ -68,7 +68,7 @@ public sealed class ExamCatalogTests(IntegrationTestWebAppFactory factory) : Bas
 
         HttpResponseMessage commit = await HttpClient.PostAsJsonAsync(
             $"exams/{examId}/files",
-            new { objectKey = uploaded.ObjectKey, fileName = "task.txt", sha256 = uploaded.Sha256 });
+            new { objectKey = uploaded.ObjectKey, fileName = "task.txt" });
 
         commit.EnsureSuccessStatusCode();
     }

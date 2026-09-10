@@ -2,7 +2,16 @@ namespace Web.Api.Common.Storage;
 
 public interface IStorageService
 {
-    Task PutAsync(string objectKey, Stream content, string contentType, CancellationToken cancellationToken = default);
+    // sha256, when given, is recorded as metadata on the object itself and handed back by
+    // StatAsync. That is how a commit learns the digest the server measured at upload without
+    // taking the caller's word for it, and without reading the whole object back.
+    Task PutAsync(
+        string objectKey,
+        Stream content,
+        string contentType,
+        string? sha256,
+        CancellationToken cancellationToken = default);
+
     Task<Stream> GetAsync(string objectKey, CancellationToken cancellationToken = default);
 
     // Reports what the store holds for objectKey, or null if there is no

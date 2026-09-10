@@ -18,12 +18,22 @@ internal sealed class SubmissionConfiguration : IEntityTypeConfiguration<Submiss
             .HasConversion(objectKey => objectKey.Value, value => ObjectKey.FromTrusted(value))
             .HasMaxLength(ObjectKey.MaxLength);
 
-        builder.Property(s => s.Sha256)
+        builder.Property(s => s.SolutionSha256)
+            .HasConversion(sha256 => sha256.Value, value => Sha256Hash.FromTrusted(value))
+            .HasMaxLength(Sha256Hash.Length)
+            .IsFixedLength();
+
+        builder.Property(s => s.ActivityLogObjectKey)
+            .HasConversion(objectKey => objectKey.Value, value => ObjectKey.FromTrusted(value))
+            .HasMaxLength(ObjectKey.MaxLength);
+
+        builder.Property(s => s.ActivityLogSha256)
             .HasConversion(sha256 => sha256.Value, value => Sha256Hash.FromTrusted(value))
             .HasMaxLength(Sha256Hash.Length)
             .IsFixedLength();
 
         builder.HasIndex(s => s.SolutionObjectKey).IsUnique();
+        builder.HasIndex(s => s.ActivityLogObjectKey).IsUnique();
 
         // One submission per student per sitting, enforced by the database rather than only by the
         // handler's check. "The student cannot alter it afterwards" is the property the exam mode

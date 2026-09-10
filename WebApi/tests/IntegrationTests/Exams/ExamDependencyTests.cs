@@ -238,7 +238,7 @@ public sealed class ExamDependencyTests(IntegrationTestWebAppFactory factory) : 
         UploadedContent file = await UploadExamFileAsync(examId, "abc");
         HttpResponseMessage commit = await HttpClient.PostAsJsonAsync(
             $"exams/{examId}/files",
-            new { objectKey = file.ObjectKey, fileName = "task.txt", sha256 = file.Sha256 });
+            new { objectKey = file.ObjectKey, fileName = "task.txt" });
         commit.EnsureSuccessStatusCode();
 
         HttpResponseMessage publish = await HttpClient.PatchAsync($"exams/{examId}/publish", content: null);

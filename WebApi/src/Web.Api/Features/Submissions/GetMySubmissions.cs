@@ -29,10 +29,15 @@ public static class GetMySubmissions
 
         public DateTime SubmittedAt { get; init; }
 
-        public long SizeBytes { get; init; }
+        // The digests are returned so a student can check the server received exactly what they
+        // sent - both halves of the submission.
+        public long SolutionSizeBytes { get; init; }
 
-        // Returned so a student can check the server received exactly what they sent.
-        public string Sha256 { get; init; }
+        public string SolutionSha256 { get; init; }
+
+        public long ActivityLogSizeBytes { get; init; }
+
+        public string ActivityLogSha256 { get; init; }
     }
 
     internal sealed class Handler(ApplicationDbContext context, IUserContext userContext)
@@ -54,8 +59,10 @@ public static class GetMySubmissions
                     ExamTitle = exam.Title.Value,
                     SessionStartsAt = session.StartsAt,
                     SubmittedAt = submission.SubmittedAt,
-                    SizeBytes = submission.SizeBytes,
-                    Sha256 = submission.Sha256.Value
+                    SolutionSizeBytes = submission.SolutionSizeBytes,
+                    SolutionSha256 = submission.SolutionSha256.Value,
+                    ActivityLogSizeBytes = submission.ActivityLogSizeBytes,
+                    ActivityLogSha256 = submission.ActivityLogSha256.Value
                 };
 
             return await PagedList<Response>.CreateAsync(

@@ -14,11 +14,12 @@ namespace Web.Api.Features.Exams;
 
 // Phase two of the two-phase upload: records an already-stored object as a file of the exam. The
 // key is proved to belong to this exam and to exist in storage before any row is written, and the
-// size is read back from the store rather than taken from the request.
+// size, content type and SHA-256 are all read back from the store rather than taken from the
+// request. The digest in particular was measured by UploadExamFileContent and stored with the
+// object, so the caller has no say in what gets recorded.
 public static class AddExamFile
 {
-    public sealed record Command(Guid ExamId, string ObjectKey, string FileName, string Sha256)
-        : ICommand<Guid>;
+    public sealed record Command(Guid ExamId, string ObjectKey, string FileName) : ICommand<Guid>;
 
     public sealed class Validator : AbstractValidator<Command>
     {
@@ -32,10 +33,6 @@ public static class AddExamFile
                 .Must(v => FileName.Create(v).IsSuccess)
                 .WithMessage("File name is required, must not contain a path separator, and must not exceed "
                     + $"{FileName.MaxLength} characters.");
-
-            RuleFor(c => c.Sha256)
-                .Must(v => Sha256Hash.Create(v).IsSuccess)
-                .WithMessage("SHA-256 must be 64 lowercase hexadecimal characters.");
         }
     }
 
@@ -59,13 +56,6 @@ public static class AddExamFile
             if (fileNameResult.IsFailure)
             {
                 return Result.Failure<Guid>(fileNameResult.Error);
-            }
-
-            Result<Sha256Hash> sha256Result = Sha256Hash.Create(command.Sha256);
-
-            if (sha256Result.IsFailure)
-            {
-                return Result.Failure<Guid>(sha256Result.Error);
             }
 
             ObjectKey objectKey = objectKeyResult.Value;
@@ -100,7 +90,11 @@ public static class AddExamFile
             // demonstrably already in storage.
             StorageObjectInfo? stored = await storageService.StatAsync(objectKey.Value, cancellationToken);
 
-            if (stored is null)
+            // An object with no recorded digest was not written by phase one, which always records
+            // one - so as far as this commit is concerned, nothing was uploaded under that key.
+            Result<Sha256Hash>? sha256Result = stored?.Sha256 is null ? null : Sha256Hash.Create(stored.Sha256);
+
+            if (stored is null || sha256Result is null || sha256Result.IsFailure)
             {
                 return Result.Failure<Guid>(ExamErrors.ContentNotUploaded);
             }
@@ -136,7 +130,7 @@ public static class AddExamFile
 
     public sealed class Endpoint : IEndpoint
     {
-        public sealed record Request(string ObjectKey, string FileName, string Sha256);
+        public sealed record Request(string ObjectKey, string FileName);
 
         public void MapEndpoint(IEndpointRouteBuilder app)
         {
@@ -146,7 +140,7 @@ public static class AddExamFile
                 ICommandHandler<Command, Guid> handler,
                 CancellationToken cancellationToken) =>
             {
-                var command = new Command(examId, request.ObjectKey, request.FileName, request.Sha256);
+                var command = new Command(examId, request.ObjectKey, request.FileName);
 
                 Result<Guid> result = await handler.Handle(command, cancellationToken);
 

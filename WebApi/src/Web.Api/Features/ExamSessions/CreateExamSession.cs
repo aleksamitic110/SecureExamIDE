@@ -111,7 +111,8 @@ public static class CreateExamSession
             // Storage first, database second - the same ordering every upload in this project uses.
             // A row naming a package that was never written would only be discovered by a student
             // with no network on exam day.
-            await PutAsync(packageKey, sealedPackage.Ciphertext, "application/octet-stream", cancellationToken);
+            string packageSha256 = await PutAsync(
+                packageKey, sealedPackage.Ciphertext, "application/octet-stream", cancellationToken);
 
             byte[] headerBytes = JsonSerializer.SerializeToUtf8Bytes(sealedPackage.Header, HeaderJsonOptions);
             await PutAsync(headerKey, headerBytes, "application/json", cancellationToken);
@@ -128,8 +129,7 @@ public static class CreateExamSession
                 PackageObjectKey = packageKey,
                 HeaderObjectKey = headerKey,
                 PackageSizeBytes = sealedPackage.Ciphertext.LongLength,
-                PackageSha256 = Sha256Hash.Create(
-                    Convert.ToHexStringLower(SHA256.HashData(sealedPackage.Ciphertext))).Value,
+                PackageSha256 = Sha256Hash.Create(packageSha256).Value,
                 CreatedAt = dateTimeProvider.UtcNow
             };
 
@@ -174,15 +174,21 @@ public static class CreateExamSession
             return buffer.ToArray();
         }
 
-        private async Task PutAsync(
+        // Records the object's digest on the object itself, as every upload the server writes does,
+        // and returns it.
+        private async Task<string> PutAsync(
             ObjectKey objectKey,
             byte[] content,
             string contentType,
             CancellationToken cancellationToken)
         {
+            string sha256 = Convert.ToHexStringLower(SHA256.HashData(content));
+
             using var stream = new MemoryStream(content, writable: false);
 
-            await storageService.PutAsync(objectKey.Value, stream, contentType, cancellationToken);
+            await storageService.PutAsync(objectKey.Value, stream, contentType, sha256, cancellationToken);
+
+            return sha256;
         }
 
         private sealed record ExamFileToSeal(string FileName, string ObjectKey);

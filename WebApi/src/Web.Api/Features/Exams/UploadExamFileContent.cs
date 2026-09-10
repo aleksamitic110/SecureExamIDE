@@ -68,15 +68,19 @@ public static class UploadExamFileContent
                 ? contentTypeResult.Value
                 : ContentType.Default;
 
+            string sha256 = Convert.ToHexStringLower(hash);
+
             // IStorageService stays string-based because it mirrors the S3 API; the value object is
-            // unwrapped only at that boundary.
+            // unwrapped only at that boundary. The digest is stored with the object, so AddExamFile
+            // reads it back from storage rather than trusting whatever the caller sends at commit.
             await storageService.PutAsync(
                 objectKey.Value,
                 command.Content,
                 contentType.Value,
+                sha256,
                 cancellationToken);
 
-            return new Response(objectKey.Value, sizeBytes, Convert.ToHexStringLower(hash));
+            return new Response(objectKey.Value, sizeBytes, sha256);
         }
     }
 

@@ -23,7 +23,12 @@ public sealed class CreateExamSessionHandlerTests : BaseHandlerTest
 
         public Dictionary<string, byte[]> Existing { get; } = [];
 
-        public async Task PutAsync(string objectKey, Stream content, string contentType, CancellationToken cancellationToken = default)
+        public async Task PutAsync(
+            string objectKey,
+            Stream content,
+            string contentType,
+            string? sha256,
+            CancellationToken cancellationToken = default)
         {
             using var buffer = new MemoryStream();
             await content.CopyToAsync(buffer, cancellationToken);

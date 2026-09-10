@@ -54,7 +54,12 @@ public sealed class MinioStorageService : IStorageService, IDisposable
             .Build();
 #pragma warning restore CA2000
 
-    public async Task PutAsync(string objectKey, Stream content, string contentType, CancellationToken cancellationToken = default)
+    public async Task PutAsync(
+        string objectKey,
+        Stream content,
+        string contentType,
+        string? sha256,
+        CancellationToken cancellationToken = default)
     {
         var args = new PutObjectArgs()
             .WithBucket(_bucketName)
@@ -62,6 +67,14 @@ public sealed class MinioStorageService : IStorageService, IDisposable
             .WithStreamData(content)
             .WithObjectSize(content.Length)
             .WithContentType(contentType);
+
+        // User metadata is written in the same request as the bytes, so an object and its digest
+        // can never exist apart - and nothing but this server can write it, since phase-one keys
+        // are never handed out as presigned upload URLs.
+        if (sha256 is not null)
+        {
+            args = args.WithHeaders(new Dictionary<string, string> { [Sha256MetadataHeader] = sha256 });
+        }
 
         await _minioClient.PutObjectAsync(args, cancellationToken);
     }
@@ -97,7 +110,11 @@ public sealed class MinioStorageService : IStorageService, IDisposable
         {
             ObjectStat stat = await _minioClient.StatObjectAsync(args, cancellationToken);
 
-            return new StorageObjectInfo(objectKey, stat.Size, stat.ContentType);
+            // The SDK strips the x-amz-meta- prefix from user metadata and compares keys without
+            // regard to case, so the digest written under x-amz-meta-sha256 comes back as "sha256".
+            string? sha256 = stat.MetaData.TryGetValue(Sha256MetadataKey, out string? value) ? value : null;
+
+            return new StorageObjectInfo(objectKey, stat.Size, stat.ContentType, sha256);
         }
         catch (ObjectNotFoundException)
         {
@@ -138,4 +155,7 @@ public sealed class MinioStorageService : IStorageService, IDisposable
 
         return await _presigningClient.PresignedGetObjectAsync(args);
     }
+
+    private const string Sha256MetadataKey = "sha256";
+    private const string Sha256MetadataHeader = "x-amz-meta-" + Sha256MetadataKey;
 }

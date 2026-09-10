@@ -47,7 +47,7 @@ public sealed class UploadExamFileContentHandlerTests : BaseHandlerTest
         result.Error.ShouldBe(ExamErrors.NotFound(examId));
 
         await storageService.DidNotReceiveWithAnyArgs()
-            .PutAsync(default!, default!, default!, default);
+            .PutAsync(default!, default!, default!, default, default);
     }
 
     [Fact]
@@ -107,10 +107,12 @@ public sealed class UploadExamFileContentHandlerTests : BaseHandlerTest
         result.IsSuccess.ShouldBeTrue();
         result.Value.ObjectKey.ShouldStartWith($"exams/{examId}/files/");
 
+        // The digest goes into storage with the bytes, which is what AddExamFile reads back.
         await storageService.Received(1).PutAsync(
             result.Value.ObjectKey,
             Arg.Any<Stream>(),
             "text/plain",
+            result.Value.Sha256,
             Arg.Any<CancellationToken>());
     }
 

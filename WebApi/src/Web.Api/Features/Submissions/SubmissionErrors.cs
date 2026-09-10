@@ -24,13 +24,23 @@ public static class SubmissionErrors
 
     public static readonly Error SolutionNotUploaded = Error.Problem(
         "Submissions.SolutionNotUploaded",
-        "No uploaded content was found for the provided object key");
+        "No uploaded solution was found for the provided object key");
 
+    public static readonly Error ActivityLogNotUploaded = Error.Problem(
+        "Submissions.ActivityLogNotUploaded",
+        "No uploaded activity log was found for the provided object key");
+
+    // Covers both a key minted for another student and a key minted for the other part of this
+    // student's own submission - a solution cannot stand in for the log, or the log for the solution.
     public static readonly Error ObjectKeyNotOwned = Error.Forbidden(
         "Submissions.ObjectKeyNotOwned",
-        "The provided object key does not belong to this student and session");
+        "An object key was not issued for this part of this student's submission");
 
-    public static readonly Error EmptyContent = Error.Problem(
-        "Submissions.EmptyContent",
+    public static readonly Error EmptySolution = Error.Problem(
+        "Submissions.EmptySolution",
         "The uploaded solution is empty");
+
+    public static readonly Error EmptyActivityLog = Error.Problem(
+        "Submissions.EmptyActivityLog",
+        "The uploaded activity log is empty");
 }

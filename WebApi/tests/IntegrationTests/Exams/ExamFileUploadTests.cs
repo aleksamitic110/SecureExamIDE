@@ -57,9 +57,8 @@ public sealed class ExamFileUploadTests(IntegrationTestWebAppFactory factory) : 
     private async Task<HttpResponseMessage> CommitAsync(
         Guid examId,
         string objectKey,
-        string sha256,
         string fileName = "task.txt") =>
-        await HttpClient.PostAsJsonAsync($"exams/{examId}/files", new { objectKey, fileName, sha256 });
+        await HttpClient.PostAsJsonAsync($"exams/{examId}/files", new { objectKey, fileName });
 
     private async Task AuthenticateAsProfessorAsync()
     {
@@ -112,7 +111,7 @@ public sealed class ExamFileUploadTests(IntegrationTestWebAppFactory factory) : 
         UploadedContent uploaded = (await upload.Content.ReadFromJsonAsync<UploadedContent>())!;
 
         // Act
-        HttpResponseMessage commit = await CommitAsync(examId, uploaded.ObjectKey, uploaded.Sha256, "task.pdf");
+        HttpResponseMessage commit = await CommitAsync(examId, uploaded.ObjectKey, "task.pdf");
 
         // Assert
         commit.EnsureSuccessStatusCode();
@@ -123,6 +122,31 @@ public sealed class ExamFileUploadTests(IntegrationTestWebAppFactory factory) : 
         body.Files[0].FileName.ShouldBe("task.pdf");
         body.Files[0].SizeBytes.ShouldBe(3);
         body.Files[0].ContentType.ShouldBe("application/pdf");
+        body.Files[0].Sha256.ShouldBe(Sha256Of("abc"));
+    }
+
+    // The digest recorded is the one the server measured at upload and stored with the object. A
+    // digest in the commit request is not part of the contract, and sending one changes nothing.
+    [Fact]
+    public async Task Commit_Should_RecordTheServersDigest_NotOneTheClientSends()
+    {
+        // Arrange
+        await AuthenticateAsProfessorAsync();
+        Guid examId = await CreateExamAsync();
+
+        HttpResponseMessage upload = await UploadAsync(examId, "abc");
+        UploadedContent uploaded = (await upload.Content.ReadFromJsonAsync<UploadedContent>())!;
+
+        // Act
+        HttpResponseMessage commit = await HttpClient.PostAsJsonAsync(
+            $"exams/{examId}/files",
+            new { objectKey = uploaded.ObjectKey, fileName = "task.txt", sha256 = Sha256Of("forged") });
+
+        // Assert
+        commit.EnsureSuccessStatusCode();
+
+        HttpResponseMessage exam = await HttpClient.GetAsync($"exams/{examId}");
+        ExamResponse body = (await exam.Content.ReadFromJsonAsync<ExamResponse>())!;
         body.Files[0].Sha256.ShouldBe(Sha256Of("abc"));
     }
 
@@ -138,7 +162,7 @@ public sealed class ExamFileUploadTests(IntegrationTestWebAppFactory factory) : 
         string inventedKey = $"exams/{examId}/files/{Guid.NewGuid()}";
 
         // Act
-        HttpResponseMessage response = await CommitAsync(examId, inventedKey, Sha256Of("abc"));
+        HttpResponseMessage response = await CommitAsync(examId, inventedKey);
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -160,7 +184,7 @@ public sealed class ExamFileUploadTests(IntegrationTestWebAppFactory factory) : 
         UploadedContent uploaded = (await upload.Content.ReadFromJsonAsync<UploadedContent>())!;
 
         // Act - try to attach the first exam's stored object to the second exam.
-        HttpResponseMessage response = await CommitAsync(secondExam, uploaded.ObjectKey, uploaded.Sha256);
+        HttpResponseMessage response = await CommitAsync(secondExam, uploaded.ObjectKey);
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
@@ -176,30 +200,13 @@ public sealed class ExamFileUploadTests(IntegrationTestWebAppFactory factory) : 
         HttpResponseMessage upload = await UploadAsync(examId, "abc");
         UploadedContent uploaded = (await upload.Content.ReadFromJsonAsync<UploadedContent>())!;
 
-        await CommitAsync(examId, uploaded.ObjectKey, uploaded.Sha256);
+        await CommitAsync(examId, uploaded.ObjectKey);
 
         // Act
-        HttpResponseMessage response = await CommitAsync(examId, uploaded.ObjectKey, uploaded.Sha256);
+        HttpResponseMessage response = await CommitAsync(examId, uploaded.ObjectKey);
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
-    }
-
-    [Fact]
-    public async Task Commit_Should_ReturnBadRequest_WhenHashIsNotLowercaseHex()
-    {
-        // Arrange
-        await AuthenticateAsProfessorAsync();
-        Guid examId = await CreateExamAsync();
-
-        HttpResponseMessage upload = await UploadAsync(examId, "abc");
-        UploadedContent uploaded = (await upload.Content.ReadFromJsonAsync<UploadedContent>())!;
-
-        // Act
-        HttpResponseMessage response = await CommitAsync(examId, uploaded.ObjectKey, "not-a-hash");
-
-        // Assert
-        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
     [Fact]

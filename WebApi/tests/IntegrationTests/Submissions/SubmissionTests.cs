@@ -6,15 +6,24 @@ using System.Text;
 
 namespace IntegrationTests.Submissions;
 
-// The offline half of the story: the student's laptop hands in work using the credential it was
-// given at registration, never a password login.
+// The offline half of the story: the student's laptop hands in its work - the solution and the
+// activity log together - using the credential it was given at registration, never a password login.
 public sealed class SubmissionTests(IntegrationTestWebAppFactory factory) : BaseIntegrationTest(factory)
 {
-    private const string Solution = "encrypted-solution-bytes";
+    private const string SolutionText = "encrypted-solution-bytes";
+    private const string ActivityLogText = "encrypted-activity-log-bytes";
 
     private sealed record UploadedContent(string ObjectKey, long SizeBytes, string Sha256);
 
-    private sealed record SubmissionCreated(Guid SubmissionId, DateTime SubmittedAt, long SizeBytes, string Sha256);
+    private sealed record UploadedSubmission(UploadedContent Solution, UploadedContent ActivityLog);
+
+    private sealed record SubmissionCreated(
+        Guid SubmissionId,
+        DateTime SubmittedAt,
+        long SolutionSizeBytes,
+        string SolutionSha256,
+        long ActivityLogSizeBytes,
+        string ActivityLogSha256);
 
     private sealed record SessionCreated(Guid SessionId, string OneTimeCode);
 
@@ -24,8 +33,10 @@ public sealed class SubmissionTests(IntegrationTestWebAppFactory factory) : Base
         Guid ExamId,
         string ExamTitle,
         DateTime SubmittedAt,
-        long SizeBytes,
-        string Sha256);
+        long SolutionSizeBytes,
+        string SolutionSha256,
+        long ActivityLogSizeBytes,
+        string ActivityLogSha256);
 
     private sealed record MySubmissionsPage(MySubmission[] Items, int Page, int PageSize, int TotalCount);
 
@@ -56,7 +67,7 @@ public sealed class SubmissionTests(IntegrationTestWebAppFactory factory) : Base
 
         HttpResponseMessage commit = await HttpClient.PostAsJsonAsync(
             $"exams/{examId}/files",
-            new { objectKey = uploaded.ObjectKey, fileName = "task.txt", sha256 = uploaded.Sha256 });
+            new { objectKey = uploaded.ObjectKey, fileName = "task.txt" });
         commit.EnsureSuccessStatusCode();
 
         HttpResponseMessage publish = await HttpClient.PatchAsync($"exams/{examId}/publish", content: null);
@@ -90,18 +101,24 @@ public sealed class SubmissionTests(IntegrationTestWebAppFactory factory) : Base
         return registration;
     }
 
-    private async Task<UploadedContent> UploadSolutionAsync(Guid sessionId, string content = Solution)
+    private async Task<UploadedSubmission> UploadSubmissionAsync(Guid sessionId, string solution = SolutionText)
     {
-        HttpResponseMessage response = await PostSolutionAsync(sessionId, content);
+        HttpResponseMessage response = await PostContentAsync(sessionId, solution, ActivityLogText);
         response.EnsureSuccessStatusCode();
 
-        return (await response.Content.ReadFromJsonAsync<UploadedContent>())!;
+        return (await response.Content.ReadFromJsonAsync<UploadedSubmission>())!;
     }
 
-    private async Task<HttpResponseMessage> SubmitAsync(Guid sessionId, string objectKey, string sha256) =>
+    private async Task<HttpResponseMessage> SubmitAsync(
+        Guid sessionId,
+        UploadedContent solution,
+        UploadedContent activityLog) =>
         await HttpClient.PostAsJsonAsync(
             $"sessions/{sessionId}/submissions",
-            new { objectKey, sha256 });
+            new { solutionObjectKey = solution.ObjectKey, activityLogObjectKey = activityLog.ObjectKey });
+
+    private async Task<HttpResponseMessage> SubmitAsync(Guid sessionId, UploadedSubmission uploaded) =>
+        await SubmitAsync(sessionId, uploaded.Solution, uploaded.ActivityLog);
 
     [Fact]
     public async Task AStudent_Should_SubmitWithADeviceTokenAndSeeItListed()
@@ -111,16 +128,18 @@ public sealed class SubmissionTests(IntegrationTestWebAppFactory factory) : Base
         await AuthenticateAsDeviceAsync();
 
         // Act
-        UploadedContent uploaded = await UploadSolutionAsync(sessionId);
-        HttpResponseMessage submitted = await SubmitAsync(sessionId, uploaded.ObjectKey, uploaded.Sha256);
+        UploadedSubmission uploaded = await UploadSubmissionAsync(sessionId);
+        HttpResponseMessage submitted = await SubmitAsync(sessionId, uploaded);
 
         // Assert
         submitted.EnsureSuccessStatusCode();
         SubmissionCreated created = (await submitted.Content.ReadFromJsonAsync<SubmissionCreated>())!;
 
-        // The digest is the server's own measurement of the bytes it received.
-        created.Sha256.ShouldBe(Sha256Of(Solution));
-        created.SizeBytes.ShouldBe(Solution.Length);
+        // Each digest is the server's own measurement of the bytes it received.
+        created.SolutionSha256.ShouldBe(Sha256Of(SolutionText));
+        created.SolutionSizeBytes.ShouldBe(SolutionText.Length);
+        created.ActivityLogSha256.ShouldBe(Sha256Of(ActivityLogText));
+        created.ActivityLogSizeBytes.ShouldBe(ActivityLogText.Length);
 
         HttpResponseMessage mine = await HttpClient.GetAsync("submissions/mine");
         mine.EnsureSuccessStatusCode();
@@ -130,6 +149,36 @@ public sealed class SubmissionTests(IntegrationTestWebAppFactory factory) : Base
         page.Items[0].Id.ShouldBe(created.SubmissionId);
         page.Items[0].SessionId.ShouldBe(sessionId);
         page.Items[0].ExamTitle.ShouldBe("Compilers");
+        page.Items[0].ActivityLogSha256.ShouldBe(Sha256Of(ActivityLogText));
+    }
+
+    // The digests are what the server measured at upload, stored with each object. Digests the
+    // client adds to the commit are not part of the contract and change nothing.
+    [Fact]
+    public async Task Submit_Should_RecordTheServersDigests_NotOnesTheClientSends()
+    {
+        // Arrange
+        Guid sessionId = await OpenSessionAsync();
+        await AuthenticateAsDeviceAsync();
+        UploadedSubmission uploaded = await UploadSubmissionAsync(sessionId);
+        string forged = Sha256Of("something else entirely");
+
+        // Act
+        HttpResponseMessage submitted = await HttpClient.PostAsJsonAsync(
+            $"sessions/{sessionId}/submissions",
+            new
+            {
+                solutionObjectKey = uploaded.Solution.ObjectKey,
+                solutionSha256 = forged,
+                activityLogObjectKey = uploaded.ActivityLog.ObjectKey,
+                activityLogSha256 = forged
+            });
+
+        // Assert
+        submitted.EnsureSuccessStatusCode();
+        SubmissionCreated created = (await submitted.Content.ReadFromJsonAsync<SubmissionCreated>())!;
+        created.SolutionSha256.ShouldBe(Sha256Of(SolutionText));
+        created.ActivityLogSha256.ShouldBe(Sha256Of(ActivityLogText));
     }
 
     [Fact]
@@ -140,12 +189,43 @@ public sealed class SubmissionTests(IntegrationTestWebAppFactory factory) : Base
         await AuthenticateAsDeviceAsync();
 
         // Act
-        await UploadSolutionAsync(sessionId);
+        await UploadSubmissionAsync(sessionId);
 
-        // Assert - the solution is in storage, but nothing is handed in until the commit call.
+        // Assert - both parts are in storage, but nothing is handed in until the commit call.
         HttpResponseMessage mine = await HttpClient.GetAsync("submissions/mine");
         MySubmissionsPage page = (await mine.Content.ReadFromJsonAsync<MySubmissionsPage>())!;
         page.TotalCount.ShouldBe(0);
+    }
+
+    // The log travels with the solution. A request with the solution alone is not a submission.
+    [Fact]
+    public async Task Upload_Should_BeRejected_WhenTheActivityLogIsMissing()
+    {
+        // Arrange
+        Guid sessionId = await OpenSessionAsync();
+        await AuthenticateAsDeviceAsync();
+
+        // Act
+        HttpResponseMessage response = await PostContentAsync(sessionId, SolutionText, activityLog: null);
+
+        // Assert
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    // The part is in the object key, so the solution cannot be handed in a second time as the log.
+    [Fact]
+    public async Task ASolution_Should_NotBeAcceptedInPlaceOfTheActivityLog()
+    {
+        // Arrange
+        Guid sessionId = await OpenSessionAsync();
+        await AuthenticateAsDeviceAsync();
+        UploadedSubmission uploaded = await UploadSubmissionAsync(sessionId);
+
+        // Act
+        HttpResponseMessage response = await SubmitAsync(sessionId, uploaded.Solution, uploaded.Solution);
+
+        // Assert
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
 
     // The property the exam mode exists to provide: handed-in work cannot be replaced.
@@ -156,12 +236,12 @@ public sealed class SubmissionTests(IntegrationTestWebAppFactory factory) : Base
         Guid sessionId = await OpenSessionAsync();
         await AuthenticateAsDeviceAsync();
 
-        UploadedContent first = await UploadSolutionAsync(sessionId);
-        HttpResponseMessage submitted = await SubmitAsync(sessionId, first.ObjectKey, first.Sha256);
+        UploadedSubmission first = await UploadSubmissionAsync(sessionId);
+        HttpResponseMessage submitted = await SubmitAsync(sessionId, first);
         submitted.EnsureSuccessStatusCode();
 
         // Act - upload different work and try to hand that in instead.
-        HttpResponseMessage secondUpload = await PostSolutionAsync(sessionId, "a better answer");
+        HttpResponseMessage secondUpload = await PostContentAsync(sessionId, "a better answer", ActivityLogText);
 
         // Assert - refused at the earlier phase already, so nothing new even reaches storage.
         secondUpload.StatusCode.ShouldBe(HttpStatusCode.Conflict);
@@ -178,7 +258,7 @@ public sealed class SubmissionTests(IntegrationTestWebAppFactory factory) : Base
         Authenticate(tokens.AccessToken);
 
         // Act
-        HttpResponseMessage response = await PostSolutionAsync(sessionId, Solution);
+        HttpResponseMessage response = await PostContentAsync(sessionId, SolutionText, ActivityLogText);
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
@@ -192,14 +272,13 @@ public sealed class SubmissionTests(IntegrationTestWebAppFactory factory) : Base
         Guid sessionId = await OpenSessionAsync();
 
         await AuthenticateAsDeviceAsync();
-        UploadedContent victimsUpload = await UploadSolutionAsync(sessionId, "the other student's work");
+        UploadedSubmission victimsUpload = await UploadSubmissionAsync(sessionId, "the other student's work");
 
         // A second student, on their own machine.
         await AuthenticateAsDeviceAsync();
 
         // Act
-        HttpResponseMessage response = await SubmitAsync(
-            sessionId, victimsUpload.ObjectKey, victimsUpload.Sha256);
+        HttpResponseMessage response = await SubmitAsync(sessionId, victimsUpload);
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
@@ -211,11 +290,16 @@ public sealed class SubmissionTests(IntegrationTestWebAppFactory factory) : Base
         // Arrange
         Guid sessionId = await OpenSessionAsync();
         Registration student = await AuthenticateAsDeviceAsync();
+        UploadedSubmission uploaded = await UploadSubmissionAsync(sessionId);
 
-        string inventedKey = $"sessions/{sessionId}/submissions/{student.UserId}/{Guid.NewGuid()}";
+        // A well-formed key under this student's own solution prefix, which was never written.
+        var inventedSolution = new UploadedContent(
+            $"sessions/{sessionId}/submissions/{student.UserId}/solution/{Guid.NewGuid()}",
+            SolutionText.Length,
+            Sha256Of(SolutionText));
 
         // Act
-        HttpResponseMessage response = await SubmitAsync(sessionId, inventedKey, Sha256Of(Solution));
+        HttpResponseMessage response = await SubmitAsync(sessionId, inventedSolution, uploaded.ActivityLog);
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -229,7 +313,7 @@ public sealed class SubmissionTests(IntegrationTestWebAppFactory factory) : Base
         HttpClient.DefaultRequestHeaders.Authorization = null;
 
         // Act
-        HttpResponseMessage response = await PostSolutionAsync(sessionId, Solution);
+        HttpResponseMessage response = await PostContentAsync(sessionId, SolutionText, ActivityLogText);
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
@@ -242,8 +326,8 @@ public sealed class SubmissionTests(IntegrationTestWebAppFactory factory) : Base
         Guid sessionId = await OpenSessionAsync();
 
         await AuthenticateAsDeviceAsync();
-        UploadedContent uploaded = await UploadSolutionAsync(sessionId);
-        (await SubmitAsync(sessionId, uploaded.ObjectKey, uploaded.Sha256)).EnsureSuccessStatusCode();
+        UploadedSubmission uploaded = await UploadSubmissionAsync(sessionId);
+        (await SubmitAsync(sessionId, uploaded)).EnsureSuccessStatusCode();
 
         // A different student who has submitted nothing.
         await AuthenticateAsDeviceAsync();
@@ -256,13 +340,25 @@ public sealed class SubmissionTests(IntegrationTestWebAppFactory factory) : Base
         page.TotalCount.ShouldBe(0);
     }
 
-    // Builds and disposes the multipart body in one place, so no caller has to own it.
-    private async Task<HttpResponseMessage> PostSolutionAsync(Guid sessionId, string content)
+    // Builds and disposes the multipart body in one place, so no caller has to own it. A null
+    // activity log sends the solution on its own.
+    private async Task<HttpResponseMessage> PostContentAsync(Guid sessionId, string solution, string? activityLog)
     {
         using var form = new MultipartFormDataContent();
-        using var fileContent = new ByteArrayContent(Encoding.UTF8.GetBytes(content));
-        fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-        form.Add(fileContent, "file", "solution.bin");
+
+        using var solutionContent = new ByteArrayContent(Encoding.UTF8.GetBytes(solution));
+        solutionContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        form.Add(solutionContent, "solution", "solution.bin");
+
+        using ByteArrayContent? activityLogContent = activityLog is null
+            ? null
+            : new ByteArrayContent(Encoding.UTF8.GetBytes(activityLog));
+
+        if (activityLogContent is not null)
+        {
+            activityLogContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            form.Add(activityLogContent, "activityLog", "activity-log.bin");
+        }
 
         return await HttpClient.PostAsync($"sessions/{sessionId}/submissions/content", form);
     }

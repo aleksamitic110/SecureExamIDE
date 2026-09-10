@@ -26,14 +26,15 @@ public sealed class AddExamFileHandlerTests : BaseHandlerTest
         return new AddExamFile.Handler(context, userContext, storageService, dateTimeProvider);
     }
 
-    private static IStorageService StorageHolding(string objectKey, long sizeBytes = 3) =>
-        StorageHolding(objectKey, sizeBytes, "text/plain");
-
-    private static IStorageService StorageHolding(string objectKey, long sizeBytes, string contentType)
+    private static IStorageService StorageHolding(
+        string objectKey,
+        long sizeBytes = 3,
+        string contentType = "text/plain",
+        string? sha256 = Sha256)
     {
         IStorageService storageService = Substitute.For<IStorageService>();
         storageService.StatAsync(objectKey, Arg.Any<CancellationToken>())
-            .Returns(new StorageObjectInfo(objectKey, sizeBytes, contentType));
+            .Returns(new StorageObjectInfo(objectKey, sizeBytes, contentType, sha256));
 
         return storageService;
     }
@@ -61,7 +62,29 @@ public sealed class AddExamFileHandlerTests : BaseHandlerTest
 
         // Act
         Result<Guid> result = await handler.Handle(
-            new AddExamFile.Command(examId, objectKey, "task.pdf", Sha256),
+            new AddExamFile.Command(examId, objectKey, "task.pdf"),
+            CancellationToken.None);
+
+        // Assert
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBe(ExamErrors.ContentNotUploaded);
+        (await context.ExamFiles.CountAsync()).ShouldBe(0);
+    }
+
+    // Phase one always records a digest, so an object without one did not come through it.
+    [Fact]
+    public async Task Handle_Should_WriteNoRow_WhenTheStoredObjectCarriesNoDigest()
+    {
+        // Arrange
+        await using ApplicationDbContext context = CreateDbContext();
+        Guid examId = await SeedExamAsync(context, ProfessorId);
+        string objectKey = $"exams/{examId}/files/{Guid.NewGuid()}";
+
+        AddExamFile.Handler handler = CreateHandler(context, StorageHolding(objectKey, sha256: null));
+
+        // Act
+        Result<Guid> result = await handler.Handle(
+            new AddExamFile.Command(examId, objectKey, "task.pdf"),
             CancellationToken.None);
 
         // Assert
@@ -83,7 +106,7 @@ public sealed class AddExamFileHandlerTests : BaseHandlerTest
 
         // Act
         Result<Guid> result = await handler.Handle(
-            new AddExamFile.Command(examId, otherExamKey, "stolen.pdf", Sha256),
+            new AddExamFile.Command(examId, otherExamKey, "stolen.pdf"),
             CancellationToken.None);
 
         // Assert
@@ -107,7 +130,7 @@ public sealed class AddExamFileHandlerTests : BaseHandlerTest
 
         // Act
         Result<Guid> result = await handler.Handle(
-            new AddExamFile.Command(examId, objectKey, "task.pdf", Sha256),
+            new AddExamFile.Command(examId, objectKey, "task.pdf"),
             CancellationToken.None);
 
         // Assert
@@ -124,7 +147,7 @@ public sealed class AddExamFileHandlerTests : BaseHandlerTest
         string objectKey = $"exams/{examId}/files/{Guid.NewGuid()}";
 
         AddExamFile.Handler handler = CreateHandler(context, StorageHolding(objectKey));
-        var command = new AddExamFile.Command(examId, objectKey, "task.pdf", Sha256);
+        var command = new AddExamFile.Command(examId, objectKey, "task.pdf");
 
         await handler.Handle(command, CancellationToken.None);
 
@@ -138,7 +161,7 @@ public sealed class AddExamFileHandlerTests : BaseHandlerTest
     }
 
     [Fact]
-    public async Task Handle_Should_TakeSizeAndContentTypeFromStorageRatherThanTheRequest()
+    public async Task Handle_Should_TakeSizeContentTypeAndDigestFromStorageRatherThanTheRequest()
     {
         // Arrange
         await using ApplicationDbContext context = CreateDbContext();
@@ -151,7 +174,7 @@ public sealed class AddExamFileHandlerTests : BaseHandlerTest
 
         // Act
         Result<Guid> result = await handler.Handle(
-            new AddExamFile.Command(examId, objectKey, "task.pdf", Sha256),
+            new AddExamFile.Command(examId, objectKey, "task.pdf"),
             CancellationToken.None);
 
         // Assert
@@ -178,7 +201,7 @@ public sealed class AddExamFileHandlerTests : BaseHandlerTest
 
         // Act
         await handler.Handle(
-            new AddExamFile.Command(examId, objectKey, "task.pdf", Sha256),
+            new AddExamFile.Command(examId, objectKey, "task.pdf"),
             CancellationToken.None);
 
         // Assert
