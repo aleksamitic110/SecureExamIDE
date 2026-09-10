@@ -8,6 +8,12 @@ public static class ExamErrors
         "Exams.NotFound",
         $"The exam with the Id = '{examId}' was not found");
 
+    // Also what a student gets for a dependency of an exam that is not published yet, so nothing
+    // about a draft leaks out through its dependencies.
+    public static Error DependencyNotFound(Guid dependencyId) => Error.NotFound(
+        "Exams.DependencyNotFound",
+        $"The dependency with the Id = '{dependencyId}' was not found");
+
     public static Error NotDraft(ExamPackageStatus status) => Error.Conflict(
         "Exams.NotDraft",
         $"Files can only be added while the exam is a draft, but this exam is '{status}'");
