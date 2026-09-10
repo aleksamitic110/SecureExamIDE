@@ -11,7 +11,8 @@ namespace Web.Api.UnitTests.Submissions;
 
 // Builds the rows a professor's review reads: an exam owned by a professor, one sitting of it, and
 // students who handed in work from a bound machine. Shared by the review handler tests because
-// every one of them needs the same four linked rows.
+// every one of them needs the same four linked rows, and by the cancellation tests, which need the
+// sitting.
 internal static class ReviewSeed
 {
     public static async Task<Guid> SeedSessionAsync(
