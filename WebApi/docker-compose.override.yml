@@ -1,0 +1,11 @@
+# Compose loads this automatically on top of docker-compose.yml.
+#
+# Visual Studio generated the original version of this file for Windows: it mapped $APPDATA for
+# user secrets and dev certificates, and set ASPNETCORE_HTTPS_PORTS=8081. Neither works here -
+# $APPDATA is empty on Linux, and asking Kestrel for an HTTPS port without a certificate stops the
+# container at startup. Development runs over plain HTTP on 5000 instead.
+services:
+  web-api:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8080

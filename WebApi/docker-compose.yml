@@ -1,0 +1,61 @@
+# No credentials or connection settings live in this file: every service loads .env, which is
+# git-ignored. Copy .env.example to .env before the first run.
+services:
+  web-api:
+    image: ${DOCKER_REGISTRY-}webapi
+    container_name: web-api
+    build:
+      context: .
+      dockerfile: src/Web.Api/Dockerfile
+    env_file: .env
+    ports:
+      - 5000:8080
+    # Migrations are applied at startup, so the API must not come up before the database will
+    # accept a connection.
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17
+    container_name: postgres
+    env_file: .env
+    volumes:
+      - ./.containers/db:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    command: server /data --console-address ":9001"
+    env_file: .env
+    volumes:
+      - ./.containers/minio:/data
+    ports:
+      - 9000:9000
+      - 9001:9001
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 20s
+      retries: 5
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: minio-init
+    env_file: .env
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: /bin/sh
+    # $$ escapes the dollar so Compose leaves it alone and the container's own shell expands it,
+    # which keeps the credentials out of this file.
+    command: -c "mc alias set myminio http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD && mc mb myminio/$$MINIO_BUCKET --ignore-existing && echo Bucket $$MINIO_BUCKET ready"
