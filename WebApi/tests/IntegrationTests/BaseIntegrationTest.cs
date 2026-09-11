@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.DependencyInjection;
 using Web.Api.Common.Storage;
 
@@ -50,10 +51,29 @@ public abstract class BaseIntegrationTest
     protected async Task<HttpResponseMessage> RegisterAsync(object request) =>
         await HttpClient.PostAsJsonAsync("users/register", request);
 
+    // Every mail the API has sent during the run.
+    protected CapturingEmailSender Mailbox => _factory.Mailbox;
+
+    // The code in the most recent mail the API sent to this address, read the way a student would.
+    protected string LatestVerificationCodeFor(string email)
+    {
+        string body = _factory.Mailbox.SentTo(email)[^1].Body;
+
+        return Regex.Match(body, @"\b\d{6}\b", RegexOptions.None, TimeSpan.FromSeconds(1)).Value;
+    }
+
+    protected async Task<HttpResponseMessage> VerifyEmailAsync(string email, string? code = null) =>
+        await HttpClient.PostAsJsonAsync(
+            "users/verify-email",
+            new { email, code = code ?? LatestVerificationCodeFor(email) });
+
+    // Registers and, unless told otherwise, verifies the address with the mailed code - the state
+    // every test that is not about verification itself needs an account to be in.
     protected async Task<Registration> RegisterStudentAsync(
         string email,
         string? indexNumber = null,
-        string deviceName = "Test laptop")
+        string deviceName = "Test laptop",
+        bool verifyEmail = true)
     {
         HttpResponseMessage response = await RegisterAsync(new
         {
@@ -68,12 +88,18 @@ public abstract class BaseIntegrationTest
 
         response.EnsureSuccessStatusCode();
 
+        if (verifyEmail)
+        {
+            (await VerifyEmailAsync(email)).EnsureSuccessStatusCode();
+        }
+
         return (await response.Content.ReadFromJsonAsync<Registration>())!;
     }
 
     protected async Task<Registration> RegisterProfessorAsync(
         string email,
-        string deviceName = "Test office PC")
+        string deviceName = "Test office PC",
+        bool verifyEmail = true)
     {
         HttpResponseMessage response = await RegisterAsync(new
         {
@@ -87,6 +113,11 @@ public abstract class BaseIntegrationTest
         });
 
         response.EnsureSuccessStatusCode();
+
+        if (verifyEmail)
+        {
+            (await VerifyEmailAsync(email)).EnsureSuccessStatusCode();
+        }
 
         return (await response.Content.ReadFromJsonAsync<Registration>())!;
     }

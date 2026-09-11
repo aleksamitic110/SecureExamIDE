@@ -12,6 +12,7 @@ using Web.Api.Common.Behaviors;
 using Web.Api.Common.Messaging;
 using Web.Api.Common.Crypto;
 using Web.Api.Features.Exams;
+using Web.Api.Features.Users;
 using Web.Api.Common.Storage;
 using Web.Api.Database;
 using Web.Api.Notifications;
@@ -70,7 +71,8 @@ public static class DependencyInjection
             .AddHealthChecks(configuration)
             .AddAuthenticationInternal(configuration)
             .AddAuthorizationInternal()
-            .AddStorage(configuration);
+            .AddStorage(configuration)
+            .AddNotifications(configuration);
 
     private static IServiceCollection AddServices(this IServiceCollection services)
     {
@@ -82,11 +84,28 @@ public static class DependencyInjection
 
         services.AddTransient<IDomainEventsDispatcher, DomainEventsDispatcher>();
 
-        services.AddScoped<IEmailSender, LoggingEmailSender>();
-
 #pragma warning disable EXTEXP0018 // HybridCache is released; the API is stable in .NET 10.
         services.AddHybridCache();
 #pragma warning restore EXTEXP0018
+
+        return services;
+    }
+
+    // Real mail when an SMTP server is configured - Mailpit in the compose stack, a provider in
+    // production - and a logging stand-in otherwise, so the API still starts on a machine that has
+    // no mail server at all.
+    private static IServiceCollection AddNotifications(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.Configure<EmailOptions>(configuration.GetSection("Email"));
+
+        if (string.IsNullOrWhiteSpace(configuration["Email:Host"]))
+        {
+            services.AddScoped<IEmailSender, LoggingEmailSender>();
+        }
+        else
+        {
+            services.AddScoped<IEmailSender, SmtpEmailSender>();
+        }
 
         return services;
     }
@@ -141,6 +160,8 @@ public static class DependencyInjection
         services.Configure<RegistrationOptions>(configuration.GetSection("Registration"));
 
         services.Configure<ExamOptions>(configuration.GetSection("Exams"));
+
+        services.Configure<EmailVerificationOptions>(configuration.GetSection("EmailVerification"));
 
         services.AddHttpContextAccessor();
         services.AddScoped<IUserContext, UserContext>();

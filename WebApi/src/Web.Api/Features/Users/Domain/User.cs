@@ -22,4 +22,9 @@ public sealed class User : Entity
     // Cleared when an account is revoked. An inactive user keeps every credential it was ever
     // issued but is granted no permissions, so all protected endpoints reject it.
     public bool IsActive { get; set; }
+
+    // When the address was confirmed with the code sent to it, and null until then. An unverified
+    // account can neither log in nor exchange its device credential for a token, so the only thing
+    // it can do is verify.
+    public DateTime? EmailVerifiedAt { get; set; }
 }

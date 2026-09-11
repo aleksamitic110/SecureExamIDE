@@ -1,13 +1,16 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Minio;
 using Minio.DataModel.Args;
 using Testcontainers.Minio;
 using Testcontainers.PostgreSql;
 using Web.Api;
 using Web.Api.Database;
+using Web.Api.Notifications;
 
 namespace IntegrationTests;
 
@@ -56,7 +59,20 @@ public sealed class IntegrationTestWebAppFactory : WebApplicationFactory<Program
         // Relax rate limiting so the test suite is not throttled.
         builder.UseSetting("RateLimiting:Global:PermitLimit", "100000");
         builder.UseSetting("RateLimiting:Authentication:PermitLimit", "100000");
+
+        // A resend right after registration would otherwise be ignored for a minute.
+        builder.UseSetting("EmailVerification:ResendCooldownSeconds", "0");
+
+        // Every mail the API sends lands in Mailbox instead of an SMTP server, where the test
+        // helpers read the verification codes back out.
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IEmailSender>();
+            services.AddSingleton<IEmailSender>(Mailbox);
+        });
     }
+
+    public CapturingEmailSender Mailbox { get; } = new();
 
     public async Task InitializeAsync()
     {

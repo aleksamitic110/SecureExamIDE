@@ -10,7 +10,7 @@ Create a new entity and wire it through the single `Web.Api` project, following 
 
 ## Files to create/modify
 
-1. **Entity** — `src/Web.Api/Features/{Entity}/{Entity}.cs`
+1. **Entity** — `src/Web.Api/Features/{Entity}/Domain/{Entity}.cs`
 
 ```csharp
 using Web.Api.Common;
@@ -28,7 +28,7 @@ public sealed class Project : Entity
 
 `sealed class`, inherits `Entity` (from `Web.Api.Common` — gives it `DomainEvents` + `Raise(...)`), `Guid Id`, plain settable properties, collections initialized with `= [];`.
 
-2. **Error catalog** — `src/Web.Api/Features/{Entity}/{Entity}Errors.cs`
+2. **Error catalog** — `src/Web.Api/Features/{Entity}/Domain/{Entity}Errors.cs`
 
 ```csharp
 using Web.Api.Common;
@@ -45,7 +45,7 @@ public static class ProjectErrors
 
 Codes are `"{FeaturePlural}.{Reason}"`. Pick the factory by semantics: `Error.NotFound` (404), `Error.Conflict` (409), `Error.Problem` (400), `Error.Failure` (500). `Error`/`ErrorType` are in `Web.Api.Common`.
 
-3. **Domain events** — one record per file, `src/Web.Api/Features/{Entity}/{Entity}{PastTenseVerb}DomainEvent.cs`
+3. **Domain events** — one record per file, `src/Web.Api/Features/{Entity}/Events/{Entity}{PastTenseVerb}DomainEvent.cs`
 
 ```csharp
 using Web.Api.Common;
@@ -93,7 +93,8 @@ Migration names are `PascalCase_With_Underscores` (see `Add_RefreshTokens`).
 ## Rules
 
 - The entity is a plain domain type in its feature folder — no EF attributes, no persistence concerns on it. Keys, conversions, and relationships live exclusively in the `Database/Configurations/` configuration.
-- Entity, errors, and domain events go in `Features/{Entity}/` (namespace `Web.Api.Features.{Entity}`); the EF configuration goes in `Database/Configurations/`; the `DbSet` on `ApplicationDbContext`.
+- Inside `Features/{Entity}/`, the entity, its errors, enums, value objects and helpers go in `Domain/`, and domain events in `Events/`; the use-case slices sit at the feature root. **The namespace stays `Web.Api.Features.{Entity}` in every subfolder** — the subfolders are for finding files, not a boundary (`.editorconfig` switches off namespace-matches-folder for `Features/`). The EF configuration goes in `Database/Configurations/`; the `DbSet` on `ApplicationDbContext`.
+- Everything is written in English — identifiers, comments, error messages, and any text a user will see.
 - Domain types are shareable across features (a slice in another feature may reference this entity), but never reference another feature's `Command`/`Handler`.
 - Run `dotnet build` and `dotnet test` when done.
 - If the user also wants use cases for the entity, continue with the `add-feature` skill.

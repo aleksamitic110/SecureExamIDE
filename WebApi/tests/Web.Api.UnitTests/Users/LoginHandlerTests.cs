@@ -134,7 +134,36 @@ public sealed class LoginHandlerTests : BaseHandlerTest
         device.RevokedAt.ShouldBeNull();
     }
 
-    private static async Task<Guid> SeedUserAsync(ApplicationDbContext context)
+    // Checked after the password, so only someone who already knows it learns that the address is
+    // not verified - and nothing is issued.
+    [Fact]
+    public async Task Handle_Should_RefuseAnUnverifiedAccount_WhenThePasswordIsRight()
+    {
+        // Arrange
+        await using ApplicationDbContext context = CreateDbContext();
+        await SeedUserAsync(context, emailVerified: false);
+
+        IPasswordHasher passwordHasher = Substitute.For<IPasswordHasher>();
+        passwordHasher.Verify(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
+
+        var handler = new Login.Handler(
+            context,
+            passwordHasher,
+            Substitute.For<ITokenProvider>(),
+            Substitute.For<IDeviceCredentialProvider>(),
+            Substitute.For<IDateTimeProvider>());
+
+        // Act
+        Result<Login.Response> result = await handler.Handle(Command, CancellationToken.None);
+
+        // Assert
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBe(UserErrors.EmailNotVerified);
+        (await context.DeviceCredentials.CountAsync()).ShouldBe(0);
+        (await context.RefreshTokens.CountAsync()).ShouldBe(0);
+    }
+
+    private static async Task<Guid> SeedUserAsync(ApplicationDbContext context, bool emailVerified = true)
     {
         var user = new User
         {
@@ -145,7 +174,8 @@ public sealed class LoginHandlerTests : BaseHandlerTest
             PasswordHash = "hash",
             Role = Role.Student,
             IndexNumber = "19252".AsIndexNumber(),
-            IsActive = true
+            IsActive = true,
+            EmailVerifiedAt = emailVerified ? DateTime.UtcNow : null
         };
 
         context.Users.Add(user);

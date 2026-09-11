@@ -422,3 +422,10 @@ dotnet_diagnostic.S6781.severity = none
 # hand-maintained, so style and performance rules aimed at authored code do not apply to them.
 [src/Web.Api/Database/Migrations/*.cs]
 dotnet_diagnostic.CA1861.severity = none
+
+# One namespace per feature. Inside a feature, the Domain/ and Events/ subfolders exist to make
+# files easy to find, not to draw a boundary: the feature is the unit the architecture rules are
+# about, and a flat namespace means a file can move between the subfolders without touching a
+# single using directive anywhere.
+[src/Web.Api/Features/**.cs]
+dotnet_style_namespace_match_folder = false

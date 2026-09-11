@@ -44,6 +44,10 @@
     <PackageReference Include="Konscious.Security.Cryptography.Argon2" />
     <PackageReference Include="Minio" />
 
+    <!-- Notifications: SMTP mail for e-mail verification codes. MailKit is what Microsoft
+         recommends in place of System.Net.Mail.SmtpClient. -->
+    <PackageReference Include="MailKit" />
+
     <!-- Observability (OpenTelemetry) -->
     <PackageReference Include="Npgsql.OpenTelemetry" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />

@@ -22,12 +22,12 @@ public static class ArchiveTodo
 }
 ```
 
-Everything for the slice lives here — there is no separate Application/Domain/Infrastructure project and no separate `Endpoints/` folder. Cross-cutting code lives in `Common/`, `Database/`, `Authentication/`, `Authorization/`; each feature lives in `Features/{Entity}/`.
+Everything for the slice lives here — there is no separate Application/Domain/Infrastructure project and no separate `Endpoints/` folder. Cross-cutting code lives in `Common/`, `Database/`, `Authentication/`, `Authorization/`; each feature lives in `Features/{Entity}/`, laid out as: use-case slices at the feature root, the model (entity, errors, enums, value objects, helpers) in `Domain/`, and domain events in `Events/`. Every file in the feature keeps the namespace `Web.Api.Features.{Entity}`, whatever subfolder it is in.
 
 ## Workflow
 
 1. **Classify the use case.** A state change is a **command**; a read is a **query**. Name the slice with the use-case verb + entity, e.g. `ArchiveTodo`, `GetOverdueTodos` — that name is the file, the folder-mate, and the static class.
-2. **Check the feature's domain types.** If the entity, its `{Entity}Errors` class, or a needed domain event doesn't exist in `Features/{Entity}/`, add it first (see the `add-entity` skill). Commands that change state should raise a domain event via `entity.Raise(...)`.
+2. **Check the feature's domain types.** If the entity, its `{Entity}Errors` class (both in `Features/{Entity}/Domain/`), or a needed domain event (in `Features/{Entity}/Events/`) doesn't exist, add it first (see the `add-entity` skill). Commands that change state should raise a domain event via `entity.Raise(...)`.
 3. **Create the slice file** at `src/Web.Api/Features/{Entity}/{UseCase}.cs` with the nested `Command`/`Query`, `Validator` (commands only), `Handler`, and `Endpoint`. Templates: [references/command-slice.md](references/command-slice.md), [references/query-slice.md](references/query-slice.md), and [references/endpoint.md](references/endpoint.md).
 4. **Write tests** — handler unit tests, validator tests, and an integration test. Templates: [references/tests.md](references/tests.md).
 5. **Verify:** `dotnet build` then `dotnet test`. Everything must pass.

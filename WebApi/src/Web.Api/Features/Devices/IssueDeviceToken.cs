@@ -52,6 +52,14 @@ public static class IssueDeviceToken
                 return Result.Failure<Response>(DeviceErrors.InvalidCredential);
             }
 
+            // Registration hands out the device credential before the address is confirmed, so it
+            // is refused here until it is. Only a caller holding a valid, unrevoked secret gets this
+            // far, which is why it may be told the real reason.
+            if (match.User.EmailVerifiedAt is null)
+            {
+                return Result.Failure<Response>(UserErrors.EmailNotVerified);
+            }
+
             string accessToken = tokenProvider.CreateForDevice(match.User, match.DeviceCredentialId);
 
             return new Response(accessToken);

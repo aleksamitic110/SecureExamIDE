@@ -12,6 +12,8 @@ Review the given scope (default: `git diff` + untracked files) against this temp
 
 ### Slice structure (violations are blockers)
 - One use case = one file: `src/Web.Api/Features/{Entity}/{UseCase}.cs`, namespace `Web.Api.Features.{Entity}`, containing a `public static class {UseCase}`.
+- Feature layout: slices at the feature root, the model in `Domain/`, domain events in `Events/`, and one namespace (`Web.Api.Features.{Entity}`) for all of them. Flag a new entity, error catalog or event left at the root, and a file whose namespace was changed to follow its subfolder.
+- English only: identifiers, comments, error messages and user-facing text. Flag any Serbian string.
 - The slice is fully nested: `Command`/`Query`, `Validator` (commands only), `Handler`, and `Endpoint` are all nested inside that static class. No separate Application/Domain/Infrastructure project, no separate `Endpoints/` folder.
 - `Handler` is `internal sealed` with a primary constructor, implementing the custom `ICommandHandler<>` / `IQueryHandler<>` (from `Web.Api.Common.Messaging`) — no MediatR.
 - Response DTOs are the slice's nested `Response`; queries project with `.Select(...)` and never return domain entities.
@@ -22,7 +24,7 @@ Review the given scope (default: `git diff` + untracked files) against this temp
 
 ### Data access
 - Handlers inject the concrete `ApplicationDbContext` (from `Web.Api.Database`) directly. There is **no `IApplicationDbContext`** — flag any reference to it.
-- Persistence details (keys, conversions, relationships) live in `IEntityTypeConfiguration<>` classes under `Database/Configurations/`, not on entities. Entities are plain domain types in `Features/{Entity}/`.
+- Persistence details (keys, conversions, relationships) live in `IEntityTypeConfiguration<>` classes under `Database/Configurations/`, not on entities. Entities are plain domain types in `Features/{Entity}/Domain/`.
 
 ### Error handling
 - Expected failures return `Result` / `Result<T>` (from `Web.Api.Common`) — no exceptions for control flow, no try/catch around business rules.

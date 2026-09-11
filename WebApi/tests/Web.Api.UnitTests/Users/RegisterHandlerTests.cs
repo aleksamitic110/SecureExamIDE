@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Web.Api.Authentication;
@@ -5,6 +6,7 @@ using Web.Api.Common;
 using Web.Api.Database;
 using Web.Api.Features.Devices;
 using Web.Api.Features.Users;
+using Web.Api.Notifications;
 using Web.Api.UnitTests.Abstractions;
 
 namespace Web.Api.UnitTests.Users;
@@ -12,6 +14,7 @@ namespace Web.Api.UnitTests.Users;
 public sealed class RegisterHandlerTests : BaseHandlerTest
 {
     private const string ProfessorCode = "professor-code";
+    private static readonly DateTime Now = new(2026, 9, 11, 10, 0, 0, DateTimeKind.Utc);
 
     private static Register.Command StudentCommand =>
         new("student@example.com", "Test", "Student", "Password123", Role.Student, "19252", null, "Laptop");
@@ -23,17 +26,76 @@ public sealed class RegisterHandlerTests : BaseHandlerTest
         ApplicationDbContext context,
         IPasswordHasher? passwordHasher = null,
         IDeviceCredentialProvider? deviceCredentialProvider = null,
-        string professorCode = ProfessorCode)
+        string professorCode = ProfessorCode,
+        IEmailSender? emailSender = null)
     {
         IDateTimeProvider dateTimeProvider = Substitute.For<IDateTimeProvider>();
-        dateTimeProvider.UtcNow.Returns(DateTime.UtcNow);
+        dateTimeProvider.UtcNow.Returns(Now);
 
         return new Register.Handler(
             context,
             passwordHasher ?? Substitute.For<IPasswordHasher>(),
             deviceCredentialProvider ?? Substitute.For<IDeviceCredentialProvider>(),
             dateTimeProvider,
-            Options.Create(new RegistrationOptions { ProfessorRegistrationCode = professorCode }));
+            Options.Create(new RegistrationOptions { ProfessorRegistrationCode = professorCode }),
+            Options.Create(new EmailVerificationOptions()),
+            emailSender ?? Substitute.For<IEmailSender>());
+    }
+
+    // The account starts unverified, the code goes to the address it was registered with, and
+    // only a hash of it is stored.
+    [Fact]
+    public async Task Handle_Should_CreateAnUnverifiedAccountAndMailItACode()
+    {
+        // Arrange
+        await using ApplicationDbContext context = CreateDbContext();
+
+        IEmailSender emailSender = Substitute.For<IEmailSender>();
+        string? body = null;
+        emailSender
+            .When(s => s.SendAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>()))
+            .Do(call => body = call.ArgAt<string>(2));
+
+        Register.Handler handler = CreateHandler(context, emailSender: emailSender);
+
+        // Act
+        Result<Register.Response> result = await handler.Handle(StudentCommand, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.ShouldBeTrue();
+
+        User user = await context.Users.SingleAsync();
+        user.EmailVerifiedAt.ShouldBeNull();
+
+        await emailSender.Received(1).SendAsync(
+            StudentCommand.Email, EmailVerificationCodes.Subject, Arg.Any<string>(), Arg.Any<CancellationToken>());
+
+        string code = Regex.Match(body!, @"\b\d{6}\b", RegexOptions.None, TimeSpan.FromSeconds(1)).Value;
+        code.Length.ShouldBe(6);
+
+        EmailVerificationCode stored = await context.EmailVerificationCodes.SingleAsync();
+        stored.UserId.ShouldBe(user.Id);
+        stored.CodeHash.ShouldBe(EmailVerificationCodes.Hash(user.Id, code));
+        stored.ExpiresAt.ShouldBe(Now.AddMinutes(15));
+        stored.FailedAttempts.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Handle_Should_MailNothing_WhenRegistrationFails()
+    {
+        // Arrange
+        await using ApplicationDbContext context = CreateDbContext();
+        IEmailSender emailSender = Substitute.For<IEmailSender>();
+        Register.Handler handler = CreateHandler(context, emailSender: emailSender);
+
+        Register.Command command = ProfessorCommand with { ProfessorRegistrationCode = "wrong-code" };
+
+        // Act
+        await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        await emailSender.DidNotReceiveWithAnyArgs().SendAsync(default!, default!, default!, default);
+        (await context.EmailVerificationCodes.CountAsync()).ShouldBe(0);
     }
 
     [Fact]

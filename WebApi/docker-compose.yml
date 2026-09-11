@@ -17,6 +17,17 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      mailpit:
+        condition: service_started
+
+  # A local mail catcher: the API delivers verification codes to it over SMTP, and its web inbox
+  # shows them, so development needs no real mail account.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: mailpit
+    ports:
+      - 8025:8025
+      - 1025:1025
 
   postgres:
     image: postgres:17

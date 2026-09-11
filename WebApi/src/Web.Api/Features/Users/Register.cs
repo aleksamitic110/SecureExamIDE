@@ -88,7 +88,9 @@ public static class Register
         IPasswordHasher passwordHasher,
         IDeviceCredentialProvider deviceCredentialProvider,
         IDateTimeProvider dateTimeProvider,
-        IOptions<RegistrationOptions> registrationOptions) : ICommandHandler<Command, Response>
+        IOptions<RegistrationOptions> registrationOptions,
+        IOptions<EmailVerificationOptions> verificationOptions,
+        IEmailSender emailSender) : ICommandHandler<Command, Response>
     {
         public async Task<Result<Response>> Handle(Command command, CancellationToken cancellationToken)
         {
@@ -182,13 +184,39 @@ public static class Register
                 CreatedAt = dateTimeProvider.UtcNow
             };
 
+            // The account starts unverified. Registration is also the moment the student is certainly
+            // online, so the code goes out now; until it comes back the account can neither log in
+            // nor use the device credential it was just given.
+            EmailVerificationOptions verification = verificationOptions.Value;
+            string code = EmailVerificationCodes.Generate();
+
+            var verificationCode = new EmailVerificationCode
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                CodeHash = EmailVerificationCodes.Hash(user.Id, code),
+                ExpiresAt = dateTimeProvider.UtcNow.AddMinutes(verification.CodeLifetimeMinutes),
+                FailedAttempts = 0,
+                CreatedAt = dateTimeProvider.UtcNow
+            };
+
             user.Raise(new UserRegisteredDomainEvent(user.Id, user.Email.Value));
+            user.Raise(new EmailVerificationCodeIssuedDomainEvent(user.Id));
             deviceCredential.Raise(new DeviceCredentialIssuedDomainEvent(deviceCredential.Id, user.Id));
 
             context.Users.Add(user);
             context.DeviceCredentials.Add(deviceCredential);
+            context.EmailVerificationCodes.Add(verificationCode);
 
             await context.SaveChangesAsync(cancellationToken);
+
+            // After the save, so a mail can never announce an account that was not created. Sending
+            // is best effort (see IEmailSender): if it fails, the student asks for a new code.
+            await emailSender.SendAsync(
+                user.Email.Value,
+                EmailVerificationCodes.Subject,
+                EmailVerificationCodes.Body(code, verification.CodeLifetimeMinutes),
+                cancellationToken);
 
             return new Response(user.Id, deviceCredential.Id, secret);
         }
@@ -208,19 +236,6 @@ public static class Register
             return CryptographicOperations.FixedTimeEquals(
                 Encoding.UTF8.GetBytes(providedCode),
                 Encoding.UTF8.GetBytes(expectedCode));
-        }
-    }
-
-    internal sealed class UserRegisteredDomainEventHandler(IEmailSender emailSender)
-        : IDomainEventHandler<UserRegisteredDomainEvent>
-    {
-        public async Task Handle(UserRegisteredDomainEvent domainEvent, CancellationToken cancellationToken)
-        {
-            await emailSender.SendAsync(
-                domainEvent.Email,
-                "Welcome!",
-                "Thanks for registering. We're glad to have you on board.",
-                cancellationToken);
         }
     }
 

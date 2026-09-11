@@ -84,6 +84,13 @@ public static class Login
                 return Result.Failure<Response>(UserErrors.NotFoundByEmail);
             }
 
+            // Checked only after the password matched, so whether an address is verified is never
+            // revealed to someone who does not know its password.
+            if (user.EmailVerifiedAt is null)
+            {
+                return Result.Failure<Response>(UserErrors.EmailNotVerified);
+            }
+
             string accessToken = tokenProvider.Create(user);
             string refreshToken = tokenProvider.GenerateRefreshToken();
 

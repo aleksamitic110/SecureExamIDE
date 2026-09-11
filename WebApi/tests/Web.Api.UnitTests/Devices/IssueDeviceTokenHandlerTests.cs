@@ -108,10 +108,34 @@ public sealed class IssueDeviceTokenHandlerTests : BaseHandlerTest
         tokenProvider.Received(1).CreateForDevice(Arg.Is<User>(u => u.Id == userId), deviceId);
     }
 
+    // Registration hands the credential out before the address is confirmed, so a valid, unrevoked
+    // credential of an unverified account still gets no token - and is told why.
+    [Fact]
+    public async Task Handle_Should_RefuseTheCredentialOfAnUnverifiedAccount()
+    {
+        // Arrange
+        await using ApplicationDbContext context = CreateDbContext();
+        await SeedAsync(context, isActive: true, revokedAt: null, emailVerified: false);
+
+        ITokenProvider tokenProvider = Substitute.For<ITokenProvider>();
+        var handler = new IssueDeviceToken.Handler(context, CreateCredentialProvider(), tokenProvider);
+
+        // Act
+        Result<IssueDeviceToken.Response> result = await handler.Handle(
+            new IssueDeviceToken.Command(Secret),
+            CancellationToken.None);
+
+        // Assert
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBe(UserErrors.EmailNotVerified);
+        tokenProvider.DidNotReceiveWithAnyArgs().CreateForDevice(default!, Guid.Empty);
+    }
+
     private static async Task<(Guid UserId, Guid DeviceId)> SeedAsync(
         ApplicationDbContext context,
         bool isActive,
-        DateTime? revokedAt)
+        DateTime? revokedAt,
+        bool emailVerified = true)
     {
         var user = new User
         {
@@ -122,7 +146,8 @@ public sealed class IssueDeviceTokenHandlerTests : BaseHandlerTest
             PasswordHash = "hash",
             Role = Role.Student,
             IndexNumber = "19252".AsIndexNumber(),
-            IsActive = isActive
+            IsActive = isActive,
+            EmailVerifiedAt = emailVerified ? DateTime.UtcNow : null
         };
 
         var device = new DeviceCredential

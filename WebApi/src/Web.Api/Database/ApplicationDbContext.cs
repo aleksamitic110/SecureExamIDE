@@ -29,6 +29,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<Submission> Submissions { get; set; }
 
+    public DbSet<EmailVerificationCode> EmailVerificationCodes { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
