@@ -1,18 +1,34 @@
 using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Microsoft.Extensions.DependencyInjection;
+using Web.Api.Common.Storage;
 
 namespace IntegrationTests;
 
 [Collection(nameof(IntegrationTestCollection))]
 public abstract class BaseIntegrationTest
 {
+    private readonly IntegrationTestWebAppFactory _factory;
+
     protected BaseIntegrationTest(IntegrationTestWebAppFactory factory)
     {
+        _factory = factory;
         HttpClient = factory.CreateClient();
     }
 
     protected HttpClient HttpClient { get; }
+
+    // Asks object storage directly whether an object exists. Once the API has forgotten an object
+    // it no longer offers any way to ask about it, so this is how a test proves a delete really
+    // reached MinIO rather than only the database.
+    protected async Task<bool> StorageContainsAsync(string objectKey)
+    {
+        using IServiceScope scope = _factory.Services.CreateScope();
+        IStorageService storage = scope.ServiceProvider.GetRequiredService<IStorageService>();
+
+        return await storage.StatAsync(objectKey) is not null;
+    }
 
     protected sealed record AccessTokens(
         string AccessToken,

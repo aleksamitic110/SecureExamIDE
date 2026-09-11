@@ -14,9 +14,15 @@ public static class ExamErrors
         "Exams.DependencyNotFound",
         $"The dependency with the Id = '{dependencyId}' was not found");
 
+    // Every change to an exam - adding, correcting, removing, deleting - is refused once it is
+    // published: students may already have downloaded it, and sittings are sealed from its files.
     public static Error NotDraft(ExamPackageStatus status) => Error.Conflict(
         "Exams.NotDraft",
-        $"Files can only be added while the exam is a draft, but this exam is '{status}'");
+        $"An exam can only be changed while it is a draft, but this exam is '{status}'");
+
+    public static Error FileNotFound(Guid fileId) => Error.NotFound(
+        "Exams.FileNotFound",
+        $"The file with the Id = '{fileId}' was not found");
 
     // Raised when a caller commits an object key whose bytes are not in storage. This is the check
     // that makes the two-phase upload meaningful: without it the database could name an object
