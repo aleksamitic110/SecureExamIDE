@@ -7,6 +7,10 @@ public static class Permissions
     // Read one's own account details.
     public const string UsersRead = "users:read";
 
+    // Look up any account by its e-mail address. Professors only: it answers whether an address
+    // is registered, which a student has no need to know about anyone else.
+    public const string UsersLookup = "users:lookup";
+
     // List and revoke the credentials bound to one's own machines.
     public const string DevicesManage = "devices:manage";
 

@@ -19,6 +19,7 @@ public sealed class PermissionProviderTests : BaseHandlerTest
         permissions.ShouldContain(Permissions.SubmissionsSubmit);
         permissions.ShouldNotContain(Permissions.ExamsManage);
         permissions.ShouldNotContain(Permissions.SubmissionsReview);
+        permissions.ShouldNotContain(Permissions.UsersLookup);
     }
 
     [Fact]
@@ -32,6 +33,7 @@ public sealed class PermissionProviderTests : BaseHandlerTest
         permissions.ShouldContain(Permissions.ExamsRead);
         permissions.ShouldContain(Permissions.ExamsManage);
         permissions.ShouldContain(Permissions.SubmissionsReview);
+        permissions.ShouldContain(Permissions.UsersLookup);
         permissions.ShouldNotContain(Permissions.SubmissionsSubmit);
     }
 

@@ -39,6 +39,7 @@ internal sealed class PermissionProvider(ApplicationDbContext context)
         Role.Professor =>
         [
             Permissions.UsersRead,
+            Permissions.UsersLookup,
             Permissions.DevicesManage,
             Permissions.ExamsRead,
             Permissions.ExamsManage,
