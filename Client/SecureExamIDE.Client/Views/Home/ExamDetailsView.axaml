@@ -1,0 +1,92 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SecureExamIDE.Client.ViewModels.Home"
+             x:Class="SecureExamIDE.Client.Views.Home.ExamDetailsView"
+             x:DataType="vm:ExamDetailsViewModel">
+  <DockPanel Margin="32">
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*" Margin="0,0,0,16">
+      <Button Content="Back to exams" Command="{Binding BackCommand}" VerticalAlignment="Top" />
+    </Grid>
+
+    <!-- Download progress stays in view whichever part of the page is scrolled to. -->
+    <Border DockPanel.Dock="Bottom" Classes="item" Margin="0,12,0,0" IsVisible="{Binding IsDownloading}">
+      <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+        <TextBlock Text="{Binding ProgressText}" TextWrapping="Wrap" />
+        <ProgressBar Grid.Row="1" Margin="0,8,12,0" Minimum="0" Maximum="100" Value="{Binding ProgressPercent}" />
+        <Button Grid.Column="1" Grid.RowSpan="2" VerticalAlignment="Center" Content="Stop"
+                Command="{Binding CancelDownloadCommand}" />
+      </Grid>
+    </Border>
+
+    <ScrollViewer>
+      <StackPanel Spacing="12">
+        <TextBlock Classes="title" Text="{Binding Title}" TextWrapping="Wrap" />
+        <TextBlock Classes="info" Text="{Binding Subtitle}" />
+        <TextBlock Text="{Binding Description}" TextWrapping="Wrap" />
+
+        <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoading}" />
+        <TextBlock Classes="error" Text="{Binding ErrorMessage}"
+                   IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <TextBlock Classes="success" Text="{Binding StatusMessage}"
+                   IsVisible="{Binding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+        <TextBlock Classes="heading" Text="Sittings" Margin="0,12,0,0" />
+        <TextBlock Classes="info"
+                   Text="Each sitting has its own locked package. Download the one you will take; its toolchains come with it." />
+        <TextBlock Classes="info" Text="No sittings have been scheduled yet." IsVisible="{Binding HasNoSittings}" />
+
+        <ItemsControl ItemsSource="{Binding Sittings}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Spacing="8" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:SittingItemViewModel">
+              <Border Classes="item">
+                <Grid ColumnDefinitions="*,Auto">
+                  <StackPanel Spacing="4">
+                    <TextBlock Classes="itemTitle" Text="{Binding When}" />
+                    <TextBlock Classes="info">
+                      <Run Text="{Binding Status}" />
+                      <Run Text=" · package " />
+                      <Run Text="{Binding PackageSize}" />
+                    </TextBlock>
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <Border Classes="badge" IsVisible="{Binding IsDownloaded}">
+                      <TextBlock Text="Downloaded" />
+                    </Border>
+                    <Button Classes="accent" Content="Download" IsVisible="{Binding CanDownload}"
+                            Command="{Binding $parent[ItemsControl].((vm:ExamDetailsViewModel)DataContext).DownloadCommand}"
+                            CommandParameter="{Binding}" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <TextBlock Classes="heading" Text="Toolchains and libraries" Margin="0,12,0,0" />
+        <TextBlock Classes="info" Text="This exam needs nothing extra." IsVisible="{Binding HasNoDependencies}" />
+        <ItemsControl ItemsSource="{Binding Dependencies}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Spacing="4" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:DependencyItem">
+              <Grid ColumnDefinitions="*,Auto,Auto" Margin="4,2">
+                <TextBlock Text="{Binding Name}" />
+                <TextBlock Grid.Column="1" Classes="info" Margin="16,0" Text="{Binding Size}" />
+                <TextBlock Grid.Column="2" Classes="info" Width="90" TextAlignment="Right"
+                           Text="{Binding State}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>

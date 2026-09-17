@@ -1,18 +1,15 @@
-﻿using Avalonia;
-using System;
+using Avalonia;
 
 namespace SecureExamIDE.Client;
 
-sealed class Program
+internal static class Program
 {
-    // Initialization code. Don't use any Avalonia, third-party APIs or any
-    // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
-    // yet and stuff might break.
+    // Nothing that relies on Avalonia or a SynchronizationContext may run before AppMain is called.
     [STAThread]
     public static void Main(string[] args) => BuildAvaloniaApp()
         .StartWithClassicDesktopLifetime(args);
 
-    // Avalonia configuration, don't remove; also used by visual designer.
+    // Also used by the IDE previewer.
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()

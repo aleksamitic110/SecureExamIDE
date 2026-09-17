@@ -1,0 +1,17 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SecureExamIDE.Client.ViewModels.Home"
+             x:Class="SecureExamIDE.Client.Views.Home.ProfessorHomeView"
+             x:DataType="vm:ProfessorHomeViewModel">
+  <DockPanel Margin="32">
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="4">
+        <TextBlock Classes="title" Text="{Binding Greeting}" />
+        <TextBlock Classes="info" Text="{Binding Details}" />
+      </StackPanel>
+      <Button Grid.Column="1" VerticalAlignment="Top" Content="Sign out of this computer"
+              Command="{Binding SignOutCommand}" />
+    </Grid>
+    <TextBlock Classes="info" Margin="0,32,0,0" Text="Your exams and sittings will appear here." />
+  </DockPanel>
+</UserControl>

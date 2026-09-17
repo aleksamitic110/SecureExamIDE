@@ -1,0 +1,17 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SecureExamIDE.Client.ViewModels.Account"
+             x:Class="SecureExamIDE.Client.Views.Account.StartupView"
+             x:DataType="vm:StartupViewModel">
+  <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center">
+    <StackPanel Classes="form">
+      <TextBlock Classes="title" Text="SecureExamIDE" />
+      <ProgressBar IsIndeterminate="True" IsVisible="{Binding !CanRetry}" />
+      <TextBlock Classes="info" Text="{Binding Status}" />
+      <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+        <Button Content="Continue offline" IsVisible="{Binding CanWorkOffline}" Command="{Binding ContinueOfflineCommand}" />
+        <Button Classes="accent" Content="Try again" IsVisible="{Binding CanRetry}" Command="{Binding StartCommand}" />
+      </StackPanel>
+    </StackPanel>
+  </Border>
+</UserControl>

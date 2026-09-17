@@ -1,0 +1,25 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SecureExamIDE.Client.ViewModels.Account"
+             x:Class="SecureExamIDE.Client.Views.Account.VerifyEmailView"
+             x:DataType="vm:VerifyEmailViewModel">
+  <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center">
+    <StackPanel Classes="form">
+      <TextBlock Classes="title" Text="Confirm your e-mail address" />
+      <TextBlock Classes="info" Text="{Binding InfoMessage}" />
+
+      <TextBox Classes="code" PlaceholderText="000000" MaxLength="6" Text="{Binding Code}" />
+
+      <TextBlock Classes="error" Text="{Binding ErrorMessage}"
+                 IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+      <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy}" />
+
+      <Button Classes="accent" Content="Confirm" IsDefault="True" HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Center" Command="{Binding VerifyCommand}" />
+      <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+        <Button Content="Back" Command="{Binding BackCommand}" />
+        <Button Content="{Binding ResendLabel}" Command="{Binding ResendCommand}" />
+      </StackPanel>
+    </StackPanel>
+  </Border>
+</UserControl>

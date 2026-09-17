@@ -1,0 +1,43 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SecureExamIDE.Client.ViewModels.Account"
+             x:Class="SecureExamIDE.Client.Views.Account.RegisterView"
+             x:DataType="vm:RegisterViewModel">
+  <ScrollViewer>
+    <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <StackPanel Classes="form">
+        <TextBlock Classes="title" Text="Create an account" />
+        <TextBlock Classes="info" Text="You register once. A code will be sent to your e-mail address to confirm it." />
+
+        <Grid ColumnDefinitions="*,12,*">
+          <TextBox Grid.Column="0" PlaceholderText="First name" Text="{Binding FirstName}" />
+          <TextBox Grid.Column="2" PlaceholderText="Last name" Text="{Binding LastName}" />
+        </Grid>
+        <TextBox PlaceholderText="E-mail address" Text="{Binding Email}" />
+        <TextBox PlaceholderText="Password (at least 8 characters)" PasswordChar="•" Text="{Binding Password}" />
+        <TextBox PlaceholderText="Repeat the password" PasswordChar="•" Text="{Binding ConfirmPassword}" />
+
+        <TextBlock Classes="label" Text="I am a" />
+        <StackPanel Orientation="Horizontal" Spacing="24">
+          <RadioButton GroupName="Role" Content="Student" IsChecked="{Binding IsStudent}" />
+          <RadioButton GroupName="Role" Content="Professor" IsChecked="{Binding IsProfessor}" />
+        </StackPanel>
+        <TextBox PlaceholderText="Index number" Text="{Binding IndexNumber}" IsVisible="{Binding IsStudent}" />
+        <TextBox PlaceholderText="Professor registration code" PasswordChar="•"
+                 Text="{Binding ProfessorRegistrationCode}" IsVisible="{Binding IsProfessor}" />
+
+        <TextBlock Classes="label" Text="Name of this computer" />
+        <TextBox Text="{Binding DeviceName}" />
+
+        <TextBlock Classes="error" Text="{Binding ErrorMessage}"
+                   IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy}" />
+
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+          <Button Content="Back" Command="{Binding BackCommand}" />
+          <Button Classes="accent" Content="Create account" IsDefault="True" Command="{Binding RegisterCommand}" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+  </ScrollViewer>
+</UserControl>

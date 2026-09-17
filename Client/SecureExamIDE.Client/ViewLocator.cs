@@ -1,37 +1,39 @@
-using System;
-using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using SecureExamIDE.Client.ViewModels;
+using SecureExamIDE.Client.ViewModels.Account;
+using SecureExamIDE.Client.ViewModels.ExamDay;
+using SecureExamIDE.Client.ViewModels.Home;
+using SecureExamIDE.Client.Views.Account;
+using SecureExamIDE.Client.Views.ExamDay;
+using SecureExamIDE.Client.Views.Home;
 
 namespace SecureExamIDE.Client;
 
-/// <summary>
-/// Given a view model, returns the corresponding view if possible.
-/// </summary>
-[RequiresUnreferencedCode(
-    "Default implementation of ViewLocator involves reflection which may be trimmed away.",
-    Url = "https://docs.avaloniaui.net/docs/concepts/view-locator")]
-public class ViewLocator : IDataTemplate
+// Picks the view for a page's view model. An explicit table rather than the template's reflection
+// on type names: a missing entry is visible here, and nothing depends on names lining up or on
+// types surviving trimming.
+public sealed class ViewLocator : IDataTemplate
 {
-    public Control? Build(object? param)
+    private static readonly Dictionary<Type, Func<Control>> Views = new()
     {
-        if (param is null)
-            return null;
-        
-        var name = param.GetType().FullName!.Replace("ViewModel", "View", StringComparison.Ordinal);
-        var type = Type.GetType(name);
+        [typeof(StartupViewModel)] = () => new StartupView(),
+        [typeof(WelcomeViewModel)] = () => new WelcomeView(),
+        [typeof(RegisterViewModel)] = () => new RegisterView(),
+        [typeof(VerifyEmailViewModel)] = () => new VerifyEmailView(),
+        [typeof(LoginViewModel)] = () => new LoginView(),
+        [typeof(StudentHomeViewModel)] = () => new StudentHomeView(),
+        [typeof(ExamDetailsViewModel)] = () => new ExamDetailsView(),
+        [typeof(DownloadedExamsViewModel)] = () => new DownloadedExamsView(),
+        [typeof(UnlockSittingViewModel)] = () => new UnlockSittingView(),
+        [typeof(ExamTasksViewModel)] = () => new ExamTasksView(),
+        [typeof(ProfessorHomeViewModel)] = () => new ProfessorHomeView()
+    };
 
-        if (type != null)
-        {
-            return (Control)Activator.CreateInstance(type)!;
-        }
-        
-        return new TextBlock { Text = "Not Found: " + name };
-    }
+    public Control? Build(object? param) =>
+        param is not null && Views.TryGetValue(param.GetType(), out Func<Control>? create)
+            ? create()
+            : new TextBlock { Text = $"No view is registered for {param?.GetType().Name}." };
 
-    public bool Match(object? data)
-    {
-        return data is ViewModelBase;
-    }
+    public bool Match(object? data) => data is ViewModelBase;
 }

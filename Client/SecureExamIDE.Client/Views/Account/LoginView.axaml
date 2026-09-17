@@ -1,0 +1,28 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SecureExamIDE.Client.ViewModels.Account"
+             x:Class="SecureExamIDE.Client.Views.Account.LoginView"
+             x:DataType="vm:LoginViewModel">
+  <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center">
+    <StackPanel Classes="form">
+      <TextBlock Classes="title" Text="Sign in on this computer" />
+      <TextBlock Classes="info"
+                 Text="Use this when your account already exists - for example on a second laptop. This computer stays signed in afterwards." />
+
+      <TextBox PlaceholderText="E-mail address" Text="{Binding Email}" />
+      <TextBox PlaceholderText="Password" PasswordChar="•" Text="{Binding Password}" />
+
+      <TextBlock Classes="label" Text="Name of this computer" />
+      <TextBox Text="{Binding DeviceName}" />
+
+      <TextBlock Classes="error" Text="{Binding ErrorMessage}"
+                 IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+      <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy}" />
+
+      <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+        <Button Content="Back" Command="{Binding BackCommand}" />
+        <Button Classes="accent" Content="Sign in" IsDefault="True" Command="{Binding SignInCommand}" />
+      </StackPanel>
+    </StackPanel>
+  </Border>
+</UserControl>

@@ -1,0 +1,17 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SecureExamIDE.Client.ViewModels.Account"
+             x:Class="SecureExamIDE.Client.Views.Account.WelcomeView"
+             x:DataType="vm:WelcomeViewModel">
+  <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center">
+    <StackPanel Classes="form">
+      <TextBlock Classes="title" Text="SecureExamIDE" />
+      <TextBlock Classes="info"
+                 Text="Take programming exams on your own computer. You register once; after that this computer stays signed in." />
+      <Button Classes="accent" Content="Create an account" HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Center" Command="{Binding CreateAccountCommand}" />
+      <Button Content="I already have an account" HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Center" Command="{Binding SignInCommand}" />
+    </StackPanel>
+  </Border>
+</UserControl>

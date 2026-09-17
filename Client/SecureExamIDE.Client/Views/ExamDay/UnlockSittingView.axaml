@@ -1,0 +1,28 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SecureExamIDE.Client.ViewModels.ExamDay"
+             x:Class="SecureExamIDE.Client.Views.ExamDay.UnlockSittingView"
+             x:DataType="vm:UnlockSittingViewModel">
+  <Border Classes="card" Width="560" HorizontalAlignment="Center" VerticalAlignment="Center">
+    <StackPanel Classes="form">
+      <TextBlock Classes="title" Text="{Binding ExamTitle}" TextWrapping="Wrap" />
+      <TextBlock Classes="info" Text="{Binding Details}" />
+      <TextBlock Classes="info" Text="{Binding Status}" />
+
+      <TextBox Classes="code wide" PlaceholderText="XXXX-XXXX-XXXX-XXXX-XXXX" MaxLength="40"
+               Text="{Binding Code}" IsEnabled="{Binding !IsUnlocking}" />
+
+      <TextBlock Classes="error" Text="{Binding ErrorMessage}"
+                 IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+      <StackPanel Spacing="6" IsVisible="{Binding IsUnlocking}">
+        <ProgressBar IsIndeterminate="True" />
+        <TextBlock Classes="info" Text="Checking the code. This takes a few seconds on purpose - it is what makes guessing codes impractical." />
+      </StackPanel>
+
+      <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+        <Button Content="Back" Command="{Binding BackCommand}" />
+        <Button Classes="accent" Content="Unlock" IsDefault="True" Command="{Binding UnlockCommand}" />
+      </StackPanel>
+    </StackPanel>
+  </Border>
+</UserControl>
