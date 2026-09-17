@@ -5,24 +5,32 @@ namespace SecureExamIDE.Client.Services.Workspace;
 //   exams/{examId}/sittings/{sittingId}/workspace/files/{name}
 //   exams/{examId}/sittings/{sittingId}/workspace/finished.json
 //
-// Plain files for now. Encrypting them at rest is the next part of the workspace step, and it is
-// meant to happen behind this interface, so the screens do not change when it does.
+// The files are encrypted, which is why they are reached through Open: the key comes from unlocking
+// the package with the one-time code, so the work can only be read back inside the exam.
 //
 // Synchronous on purpose: source files are a few kilobytes, and the final save before handing in
 // has to be finished, not scheduled.
 public interface IWorkspaceStore
 {
-    IReadOnlyList<string> ListFiles(Guid examId, Guid sittingId);
+    IWorkspaceFiles Open(Guid examId, Guid sittingId, byte[] key);
 
-    string ReadFile(Guid examId, Guid sittingId, string name);
-
-    void WriteFile(Guid examId, Guid sittingId, string name, string text);
-
-    void RenameFile(Guid examId, Guid sittingId, string name, string newName);
-
-    void DeleteFile(Guid examId, Guid sittingId, string name);
-
+    // Asked before the code is typed, so it needs no key.
     bool IsFinished(Guid examId, Guid sittingId);
 
     void MarkFinished(Guid examId, Guid sittingId, DateTimeOffset finishedAt);
+}
+
+public interface IWorkspaceFiles : IDisposable
+{
+    IReadOnlyList<string> List();
+
+    // Throws InvalidDataException when the file cannot be decrypted - damaged, or written under a
+    // different key. The screen reports it and leaves the file alone rather than overwriting it.
+    string Read(string name);
+
+    void Write(string name, string text);
+
+    void Rename(string name, string newName);
+
+    void Delete(string name);
 }

@@ -40,7 +40,7 @@ public sealed class UnlockSittingViewModelTests
     public async Task Unlock_Should_StartTheWorkspace_AndForgetTheCode()
     {
         // Arrange
-        using var unlocked = new UnlockedExam([new ExamTaskFile("task.txt", [65])]);
+        using var unlocked = new UnlockedExam([new ExamTaskFile("task.txt", [65])], new byte[32]);
         _unlocker.UnlockAsync("/exams/p.bin", "/exams/p.hdr", Sitting.PackageSha256, "B34K-X088-D12W-75Y6-MJQX", Arg.Any<CancellationToken>())
             .Returns(ApiResult.Success(unlocked));
         UnlockSittingViewModel page = CreatePage();

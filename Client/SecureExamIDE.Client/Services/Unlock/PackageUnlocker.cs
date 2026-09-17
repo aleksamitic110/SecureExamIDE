@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Konscious.Security.Cryptography;
 using SecureExamIDE.Client.Services.Api;
+using SecureExamIDE.Client.Services.Credentials;
 
 namespace SecureExamIDE.Client.Services.Unlock;
 
@@ -13,7 +14,11 @@ namespace SecureExamIDE.Client.Services.Unlock;
 //   K       = AES-256-GCM-open(KEK, wrapped key)     fails  => wrong code
 //   archive = AES-256-GCM-open(K, package.bin)        fails  => damaged package
 //   tasks   = the files in the zip archive
-internal sealed class PackageUnlocker : IPackageUnlocker
+//
+// It also derives the key the workspace encrypts the student's own files with, from the content key
+// and this computer's id. Nothing has to be stored for it: typing the code again after a restart
+// derives the same key, and the same folder copied to another computer derives a different one.
+internal sealed class PackageUnlocker(IMachineIdentity machineIdentity) : IPackageUnlocker
 {
     public Task<ApiResult<UnlockedExam>> UnlockAsync(
         string packagePath,
@@ -23,7 +28,7 @@ internal sealed class PackageUnlocker : IPackageUnlocker
         CancellationToken cancellationToken = default) =>
         Task.Run(() => Unlock(packagePath, headerPath, expectedPackageSha256, typedCode), cancellationToken);
 
-    private static ApiResult<UnlockedExam> Unlock(
+    private ApiResult<UnlockedExam> Unlock(
         string packagePath,
         string headerPath,
         string expectedPackageSha256,
@@ -85,7 +90,7 @@ internal sealed class PackageUnlocker : IPackageUnlocker
 #pragma warning disable CA2000 // Ownership passes to the caller, which disposes it when the exam is locked again.
             return files is null
                 ? ApiResult.Failure<UnlockedExam>(UnlockErrors.Damaged)
-                : ApiResult.Success(new UnlockedExam(files));
+                : ApiResult.Success(new UnlockedExam(files, DeriveWorkspaceKey(contentKey)));
 #pragma warning restore CA2000
         }
         finally
@@ -95,6 +100,15 @@ internal sealed class PackageUnlocker : IPackageUnlocker
             CryptographicOperations.ZeroMemory(archive);
         }
     }
+
+    // Separate from the content key, so the exam package's own key is never the one sitting in
+    // memory for every save, and bound to this machine through the same id the credential store uses.
+    private byte[] DeriveWorkspaceKey(byte[] contentKey) => HKDF.DeriveKey(
+        HashAlgorithmName.SHA256,
+        contentKey,
+        KeySizeBytes,
+        salt: Encoding.UTF8.GetBytes(machineIdentity.GetMachineId()),
+        info: WorkspaceKeyInfo);
 
     private static PackageHeader? ReadHeader(string headerPath)
     {
@@ -203,6 +217,8 @@ internal sealed class PackageUnlocker : IPackageUnlocker
             return null;
         }
     }
+
+    private static readonly byte[] WorkspaceKeyInfo = "SecureExamIDE workspace key v1"u8.ToArray();
 
     private const int SupportedVersion = 1;
     private const int KeySizeBytes = 32;

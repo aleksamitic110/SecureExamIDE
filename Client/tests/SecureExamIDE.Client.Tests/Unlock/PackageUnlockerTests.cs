@@ -1,4 +1,5 @@
 using SecureExamIDE.Client.Services.Api;
+using SecureExamIDE.Client.Services.Credentials;
 using SecureExamIDE.Client.Services.Unlock;
 
 namespace SecureExamIDE.Client.Tests.Unlock;
@@ -12,7 +13,15 @@ public sealed class PackageUnlockerTests : IDisposable
     };
 
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "secureexamide-tests-" + Guid.NewGuid().ToString("N"));
-    private readonly PackageUnlocker _unlocker = new();
+    private readonly PackageUnlocker _unlocker = CreateUnlocker("this-machine");
+
+    private static PackageUnlocker CreateUnlocker(string machineId)
+    {
+        IMachineIdentity machineIdentity = Substitute.For<IMachineIdentity>();
+        machineIdentity.GetMachineId().Returns(machineId);
+
+        return new PackageUnlocker(machineIdentity);
+    }
 
     private string PackagePath => Path.Combine(_directory, "package.bin");
 
@@ -35,6 +44,30 @@ public sealed class PackageUnlockerTests : IDisposable
         await File.WriteAllBytesAsync(HeaderPath, header);
 
         return sha256;
+    }
+
+    // The workspace key is not stored anywhere: typing the code again derives the same key, so the
+    // student's own files open after a restart - and the same folder on another computer does not.
+    [Fact]
+    public async Task Unlock_Should_DeriveTheSameWorkspaceKeyFromTheSameCodeAndMachine()
+    {
+        // Arrange
+        string sha256 = await WriteSealedAsync();
+
+        // Act
+        ApiResult<UnlockedExam> first = await _unlocker.UnlockAsync(PackagePath, HeaderPath, sha256, TestSealer.Code);
+        ApiResult<UnlockedExam> again = await _unlocker.UnlockAsync(PackagePath, HeaderPath, sha256, TestSealer.Code);
+        ApiResult<UnlockedExam> elsewhere = await CreateUnlocker("another-machine")
+            .UnlockAsync(PackagePath, HeaderPath, sha256, TestSealer.Code);
+
+        using UnlockedExam firstExam = first.Value;
+        using UnlockedExam againExam = again.Value;
+        using UnlockedExam elsewhereExam = elsewhere.Value;
+
+        // Assert
+        firstExam.WorkspaceKey.Length.ShouldBe(32);
+        againExam.WorkspaceKey.ShouldBe(firstExam.WorkspaceKey);
+        elsewhereExam.WorkspaceKey.ShouldNotBe(firstExam.WorkspaceKey);
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Time.Testing;
+using System.Security.Cryptography;
 using SecureExamIDE.Client.Services.Exams;
 using SecureExamIDE.Client.Services.Lockdown;
 using SecureExamIDE.Client.Services.Navigation;
@@ -25,6 +26,9 @@ public sealed class WorkspaceViewModelTests : IDisposable
     private readonly WorkspaceStore _store;
     private readonly List<WorkspaceViewModel> _pages = [];
 
+    // The key an unlock would have derived from the one-time code.
+    private readonly byte[] _key = RandomNumberGenerator.GetBytes(32);
+
     public WorkspaceViewModelTests()
     {
         _time.SetLocalTimeZone(TimeZoneInfo.Utc);
@@ -48,11 +52,32 @@ public sealed class WorkspaceViewModelTests : IDisposable
     {
         var page = new WorkspaceViewModel(_navigation, _store, _lockdown, _time);
 #pragma warning disable CA2000 // The workspace owns the unlocked exam and wipes it when disposed.
-        page.Initialize(Exam, Sitting, unlocked ?? new UnlockedExam([new ExamTaskFile("tasks.txt", "1. Sort a list."u8.ToArray())]));
+        page.Initialize(Exam, Sitting, unlocked ?? new UnlockedExam([new ExamTaskFile("tasks.txt", "1. Sort a list."u8.ToArray())], (byte[])_key.Clone()));
 #pragma warning restore CA2000
         _pages.Add(page);
 
         return page;
+    }
+
+    // What the workspace sees on disk, read the same way it reads it: with the unlock's key.
+    private void WriteFile(string name, string text)
+    {
+        using IWorkspaceFiles files = _store.Open(Exam.ExamId, Sitting.SittingId, _key);
+        files.Write(name, text);
+    }
+
+    private string ReadFile(string name)
+    {
+        using IWorkspaceFiles files = _store.Open(Exam.ExamId, Sitting.SittingId, _key);
+
+        return files.Read(name);
+    }
+
+    private IReadOnlyList<string> ListFiles()
+    {
+        using IWorkspaceFiles files = _store.Open(Exam.ExamId, Sitting.SittingId, _key);
+
+        return files.List();
     }
 
     [Fact]
@@ -73,7 +98,7 @@ public sealed class WorkspaceViewModelTests : IDisposable
     public void Initialize_Should_OpenTheFilesAlreadyWritten()
     {
         // Arrange
-        _store.WriteFile(Exam.ExamId, Sitting.SittingId, "main.c", "int main(void) {}");
+        WriteFile("main.c", "int main(void) {}");
 
         // Act
         WorkspaceViewModel page = OpenWorkspace();
@@ -98,14 +123,14 @@ public sealed class WorkspaceViewModelTests : IDisposable
         page.IsNamingFile.ShouldBeFalse();
         page.ActiveFile!.Name.ShouldBe("main.c");
         page.OpenFiles.ShouldHaveSingleItem();
-        _store.ListFiles(Exam.ExamId, Sitting.SittingId).ShouldBe(["main.c"]);
+        ListFiles().ShouldBe(["main.c"]);
     }
 
     [Fact]
     public void NewFile_Should_ExplainAndKeepTheBoxOpen_WhenTheNameIsTaken()
     {
         // Arrange
-        _store.WriteFile(Exam.ExamId, Sitting.SittingId, "main.c", "");
+        WriteFile("main.c", "");
         WorkspaceViewModel page = OpenWorkspace();
 
         // Act
@@ -123,13 +148,13 @@ public sealed class WorkspaceViewModelTests : IDisposable
     public void Typing_Should_BeSavedShortlyAfterItStops()
     {
         // Arrange
-        _store.WriteFile(Exam.ExamId, Sitting.SittingId, "main.c", "");
+        WriteFile("main.c", "");
         WorkspaceViewModel page = OpenWorkspace();
         WorkspaceFileItem file = page.ActiveFile!;
 
         // Act
         file.Document.Insert(0, "int main(void) { return 0; }");
-        string beforeTheDelay = _store.ReadFile(Exam.ExamId, Sitting.SittingId, "main.c");
+        string beforeTheDelay = ReadFile("main.c");
         bool dirtyWhileTyping = file.IsDirty;
 
         _time.Advance(TimeSpan.FromSeconds(2));
@@ -137,7 +162,7 @@ public sealed class WorkspaceViewModelTests : IDisposable
         // Assert
         beforeTheDelay.ShouldBeEmpty();
         dirtyWhileTyping.ShouldBeTrue();
-        _store.ReadFile(Exam.ExamId, Sitting.SittingId, "main.c").ShouldBe("int main(void) { return 0; }");
+        ReadFile("main.c").ShouldBe("int main(void) { return 0; }");
         file.IsDirty.ShouldBeFalse();
     }
 
@@ -145,7 +170,7 @@ public sealed class WorkspaceViewModelTests : IDisposable
     public void Rename_Should_CarryUnsavedTypingToTheNewName()
     {
         // Arrange
-        _store.WriteFile(Exam.ExamId, Sitting.SittingId, "draft.c", "");
+        WriteFile("draft.c", "");
         WorkspaceViewModel page = OpenWorkspace();
         WorkspaceFileItem file = page.ActiveFile!;
         file.Document.Insert(0, "typed just now");
@@ -157,15 +182,15 @@ public sealed class WorkspaceViewModelTests : IDisposable
 
         // Assert
         file.Name.ShouldBe("main.c");
-        _store.ListFiles(Exam.ExamId, Sitting.SittingId).ShouldBe(["main.c"]);
-        _store.ReadFile(Exam.ExamId, Sitting.SittingId, "main.c").ShouldBe("typed just now");
+        ListFiles().ShouldBe(["main.c"]);
+        ReadFile("main.c").ShouldBe("typed just now");
     }
 
     [Fact]
     public void Delete_Should_RemoveTheFileAndItsTab_OnlyAfterConfirming()
     {
         // Arrange
-        _store.WriteFile(Exam.ExamId, Sitting.SittingId, "main.c", "x");
+        WriteFile("main.c", "x");
         WorkspaceViewModel page = OpenWorkspace();
         WorkspaceFileItem file = page.ActiveFile!;
 
@@ -179,7 +204,7 @@ public sealed class WorkspaceViewModelTests : IDisposable
         page.Files.ShouldBeEmpty();
         page.OpenFiles.ShouldBeEmpty();
         page.ActiveFile.ShouldBeNull();
-        _store.ListFiles(Exam.ExamId, Sitting.SittingId).ShouldBeEmpty();
+        ListFiles().ShouldBeEmpty();
     }
 
     // The only way out of the locked workspace.
@@ -187,7 +212,7 @@ public sealed class WorkspaceViewModelTests : IDisposable
     public void Finish_Should_SaveEverything_CloseTheSitting_AndUnlockTheApplication()
     {
         // Arrange
-        _store.WriteFile(Exam.ExamId, Sitting.SittingId, "main.c", "");
+        WriteFile("main.c", "");
         WorkspaceViewModel page = OpenWorkspace();
         page.ActiveFile!.Document.Insert(0, "last line typed");
 
@@ -196,7 +221,7 @@ public sealed class WorkspaceViewModelTests : IDisposable
         page.ConfirmFinishCommand.Execute(null);
 
         // Assert
-        _store.ReadFile(Exam.ExamId, Sitting.SittingId, "main.c").ShouldBe("last line typed");
+        ReadFile("main.c").ShouldBe("last line typed");
         _store.IsFinished(Exam.ExamId, Sitting.SittingId).ShouldBeTrue();
         _lockdown.Received(1).Exit();
         _navigation.Received(1).NavigateTo(Arg.Any<Action<DownloadedExamsViewModel>?>());
@@ -238,7 +263,7 @@ public sealed class WorkspaceViewModelTests : IDisposable
     {
         // Arrange
 #pragma warning disable CA2000 // Handed to the workspace, which owns and disposes it.
-        var unlocked = new UnlockedExam([new ExamTaskFile("tasks.txt", "secret"u8.ToArray())]);
+        var unlocked = new UnlockedExam([new ExamTaskFile("tasks.txt", "secret"u8.ToArray())], RandomNumberGenerator.GetBytes(32));
 #pragma warning restore CA2000
         byte[] content = unlocked.Files[0].Content;
         WorkspaceViewModel page = OpenWorkspace(unlocked);

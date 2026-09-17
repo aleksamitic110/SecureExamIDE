@@ -16,7 +16,8 @@ namespace SecureExamIDE.Client.ViewModels.ExamDay;
 //
 // Everything typed is saved on its own shortly after the typing stops, so a crash, a flat battery or
 // a forced shutdown loses at most the last moment of work, and reopening the sitting with the code
-// brings the files back.
+// brings the files back. The files are encrypted on disk with the key the unlock derived, so the
+// work can only be read back inside the exam.
 public sealed partial class WorkspaceViewModel(
     INavigationService navigation,
     IWorkspaceStore store,
@@ -29,6 +30,7 @@ public sealed partial class WorkspaceViewModel(
     private DownloadedExam? _exam;
     private DownloadedSitting? _sitting;
     private UnlockedExam? _unlocked;
+    private IWorkspaceFiles? _files;
     private ITimer? _autosave;
     private SynchronizationContext? _uiContext;
 
@@ -117,9 +119,27 @@ public sealed partial class WorkspaceViewModel(
 
         SelectedTask = Tasks.FirstOrDefault(task => task.Text is not null) ?? Tasks.FirstOrDefault();
 
-        foreach (string name in store.ListFiles(exam.ExamId, sitting.SittingId))
+        _files = store.Open(exam.ExamId, sitting.SittingId, unlocked.WorkspaceKey);
+
+        List<string> unreadable = [];
+
+        foreach (string name in _files.List())
         {
-            Files.Add(CreateItem(name, store.ReadFile(exam.ExamId, sitting.SittingId, name)));
+            try
+            {
+                Files.Add(CreateItem(name, _files.Read(name)));
+            }
+            catch (Exception exception) when (exception is InvalidDataException or IOException or UnauthorizedAccessException)
+            {
+                // Damaged or written under another key. It is left untouched rather than opened as
+                // empty, which the first save would then write over.
+                unreadable.Add(name);
+            }
+        }
+
+        if (unreadable.Count > 0)
+        {
+            ErrorMessage = $"These files could not be read and were left as they are: {string.Join(", ", unreadable)}";
         }
 
         if (Files.Count > 0)
@@ -233,13 +253,13 @@ public sealed partial class WorkspaceViewModel(
 
             // Whatever is still waiting to be saved goes under the old name first, then moves with it.
             SaveUnsaved();
-            store.RenameFile(_exam!.ExamId, _sitting!.SittingId, file.Name, name);
+            _files!.Rename(file.Name, name);
             file.Name = name;
             SortFiles();
             return;
         }
 
-        store.WriteFile(_exam!.ExamId, _sitting!.SittingId, name, string.Empty);
+        _files!.Write(name, string.Empty);
 
         WorkspaceFileItem created = CreateItem(name, string.Empty);
         Files.Add(created);
@@ -266,7 +286,7 @@ public sealed partial class WorkspaceViewModel(
             _unsaved.Remove(file);
         }
 
-        if (TryStorage(() => store.DeleteFile(_exam.ExamId, _sitting.SittingId, file.Name)))
+        if (TryStorage(() => _files!.Delete(file.Name)))
         {
             CloseTab(file);
             Files.Remove(file);
@@ -328,7 +348,7 @@ public sealed partial class WorkspaceViewModel(
     // writing the same file at once; the flags are updated back on the UI thread.
     private bool SaveUnsaved()
     {
-        if (_exam is null || _sitting is null)
+        if (_files is null)
         {
             return false;
         }
@@ -342,7 +362,7 @@ public sealed partial class WorkspaceViewModel(
             {
                 try
                 {
-                    store.WriteFile(_exam.ExamId, _sitting.SittingId, file.Name, text);
+                    _files.Write(file.Name, text);
                     _unsaved.Remove(file);
                     saved.Add(file);
                 }
@@ -431,6 +451,10 @@ public sealed partial class WorkspaceViewModel(
         lockdown.ExamWindowLeft -= OnExamWindowLeft;
 
         SaveUnsaved();
+
+        _files?.Dispose();
+        _files = null;
+
         _autosave?.Dispose();
         _autosave = null;
 
