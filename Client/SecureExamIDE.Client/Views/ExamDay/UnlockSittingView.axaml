@@ -10,7 +10,9 @@
       <TextBlock Classes="info" Text="{Binding Status}" />
 
       <TextBox Classes="code wide" PlaceholderText="XXXX-XXXX-XXXX-XXXX-XXXX" MaxLength="40"
-               Text="{Binding Code}" IsEnabled="{Binding !IsUnlocking}" />
+               Text="{Binding Code}" IsEnabled="{Binding !IsUnlocking}" IsVisible="{Binding CanEnterCode}" />
+      <TextBlock Classes="info" IsVisible="{Binding CanEnterCode}"
+                 Text="Unlocking starts the exam. The window goes fullscreen and stays that way until you finish the exam." />
 
       <TextBlock Classes="error" Text="{Binding ErrorMessage}"
                  IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -21,7 +23,8 @@
 
       <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
         <Button Content="Back" Command="{Binding BackCommand}" />
-        <Button Classes="accent" Content="Unlock" IsDefault="True" Command="{Binding UnlockCommand}" />
+        <Button Classes="accent" Content="Unlock and start" IsDefault="True" Command="{Binding UnlockCommand}"
+                IsVisible="{Binding CanEnterCode}" />
       </StackPanel>
     </StackPanel>
   </Border>

@@ -94,7 +94,7 @@ public sealed class ExamCatalogTests(IntegrationTestWebAppFactory factory) : Bas
 
         HttpResponseMessage commit = await HttpClient.PostAsJsonAsync(
             $"exams/{examId}/dependencies",
-            new { objectKey = ticket.ObjectKey, name = "GCC", version = "13.2.0" });
+            new { objectKey = ticket.ObjectKey, name = "GCC", version = "13.2.0", platform = "LinuxX64" });
 
         commit.EnsureSuccessStatusCode();
     }

@@ -17,4 +17,20 @@ internal static class AtomicFile
 
         File.Move(temporaryPath, path, overwrite: true);
     }
+
+    // The same, synchronously, for the workspace's autosave: a source file is a few kilobytes, and
+    // a save that has to finish before the exam is handed in cannot wait on a continuation.
+    public static void Write(string path, byte[] contents)
+    {
+        string temporaryPath = path + ".tmp";
+
+        File.WriteAllBytes(temporaryPath, contents);
+
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(temporaryPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        }
+
+        File.Move(temporaryPath, path, overwrite: true);
+    }
 }

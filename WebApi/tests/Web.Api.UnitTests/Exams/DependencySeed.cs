@@ -36,7 +36,8 @@ internal static class DependencySeed
         string name,
         string version,
         long sizeBytes,
-        DateTime createdAt)
+        DateTime createdAt,
+        DependencyPlatform platform = DependencyPlatform.Any)
     {
         var dependency = new ExamDependency
         {
@@ -44,6 +45,7 @@ internal static class DependencySeed
             ExamPackageId = examId,
             Name = name.AsDependencyName(),
             Version = version.AsDependencyVersion(),
+            Platform = platform,
             ContentType = "application/zip".AsContentType(),
             ObjectKey = ExamObjectKeys.NewDependencyKey(examId),
             SizeBytes = sizeBytes,

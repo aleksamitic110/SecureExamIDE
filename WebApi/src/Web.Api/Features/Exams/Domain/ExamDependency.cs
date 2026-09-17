@@ -5,7 +5,7 @@ namespace Web.Api.Features.Exams;
 
 // A tool or library the student must have locally to work on the exam - the reason no faculty
 // network is needed on exam day. The row only names bytes that are already in object storage;
-// name and version together identify it within its exam.
+// name, version and platform together identify it within its exam.
 //
 // Unlike ExamFile there is no SHA-256 here, deliberately. A dependency is a publicly available
 // archive rather than exam material, and the bytes never pass through the API - so a digest could
@@ -17,6 +17,7 @@ public sealed class ExamDependency : Entity
     public Guid ExamPackageId { get; set; }
     public DependencyName Name { get; set; }
     public DependencyVersion Version { get; set; }
+    public DependencyPlatform Platform { get; set; }
     public ContentType ContentType { get; set; }
     public ObjectKey ObjectKey { get; set; }
     public long SizeBytes { get; set; }

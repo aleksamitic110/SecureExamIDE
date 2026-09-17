@@ -75,7 +75,7 @@ internal sealed class LocalExamLibrary(string dataDirectory) : ILocalExamLibrary
 
     private string ExamDirectory(Guid examId) => Path.Combine(ExamsDirectory, examId.ToString("N"));
 
-    private string SittingDirectory(Guid examId, Guid sittingId) =>
+    public string SittingDirectory(Guid examId, Guid sittingId) =>
         Path.Combine(ExamDirectory(examId), "sittings", sittingId.ToString("N"));
 
     private string ManifestPath(Guid examId) => Path.Combine(ExamDirectory(examId), "exam.json");

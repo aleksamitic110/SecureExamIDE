@@ -3,6 +3,7 @@ using SecureExamIDE.Client.Services.Api;
 using SecureExamIDE.Client.Services.Exams;
 using SecureExamIDE.Client.Services.Navigation;
 using SecureExamIDE.Client.Services.Unlock;
+using SecureExamIDE.Client.Services.Workspace;
 using SecureExamIDE.Client.ViewModels.ExamDay;
 
 namespace SecureExamIDE.Client.Tests.ViewModels;
@@ -20,6 +21,7 @@ public sealed class UnlockSittingViewModelTests
     private readonly INavigationService _navigation = Substitute.For<INavigationService>();
     private readonly IPackageUnlocker _unlocker = Substitute.For<IPackageUnlocker>();
     private readonly ILocalExamLibrary _library = Substitute.For<ILocalExamLibrary>();
+    private readonly IWorkspaceStore _workspace = Substitute.For<IWorkspaceStore>();
     private readonly FakeTimeProvider _time = new(Now);
 
     private UnlockSittingViewModel CreatePage()
@@ -28,14 +30,14 @@ public sealed class UnlockSittingViewModelTests
         _library.PackagePath(Exam.ExamId, Sitting.SittingId).Returns("/exams/p.bin");
         _library.HeaderPath(Exam.ExamId, Sitting.SittingId).Returns("/exams/p.hdr");
 
-        var page = new UnlockSittingViewModel(_navigation, _unlocker, _library, _time);
+        var page = new UnlockSittingViewModel(_navigation, _unlocker, _library, _workspace, _time);
         page.Initialize(Exam, Sitting);
 
         return page;
     }
 
     [Fact]
-    public async Task Unlock_Should_OpenTheTasks_AndForgetTheCode()
+    public async Task Unlock_Should_StartTheWorkspace_AndForgetTheCode()
     {
         // Arrange
         using var unlocked = new UnlockedExam([new ExamTaskFile("task.txt", [65])]);
@@ -48,7 +50,7 @@ public sealed class UnlockSittingViewModelTests
         await page.UnlockCommand.ExecuteAsync(null);
 
         // Assert
-        _navigation.Received(1).NavigateTo(Arg.Any<Action<ExamTasksViewModel>?>());
+        _navigation.Received(1).NavigateTo(Arg.Any<Action<WorkspaceViewModel>?>());
         page.Code.ShouldBeEmpty();
         page.ErrorMessage.ShouldBeNull();
     }
@@ -68,7 +70,27 @@ public sealed class UnlockSittingViewModelTests
         // Assert
         page.ErrorMessage.ShouldBe("This code does not unlock this sitting. Check it and try again.");
         page.Code.ShouldBe("B34K-X088-D12W-75Y6-0000");
-        _navigation.DidNotReceiveWithAnyArgs().NavigateTo<ExamTasksViewModel>();
+        _navigation.DidNotReceiveWithAnyArgs().NavigateTo<WorkspaceViewModel>();
+    }
+
+    // Finishing is final: the code cannot reopen the exam to change the work.
+    [Fact]
+    public async Task Unlock_Should_BeRefused_WhenTheSittingIsFinished()
+    {
+        // Arrange
+        _workspace.IsFinished(Exam.ExamId, Sitting.SittingId).Returns(true);
+        UnlockSittingViewModel page = CreatePage();
+        page.Code = "B34K-X088-D12W-75Y6-MJQX";
+
+        // Act
+        bool canUnlock = page.UnlockCommand.CanExecute(null);
+        await page.UnlockCommand.ExecuteAsync(null);
+
+        // Assert
+        canUnlock.ShouldBeFalse();
+        page.CanEnterCode.ShouldBeFalse();
+        page.Status.ShouldBe("You have finished this sitting. It cannot be opened again.");
+        await _unlocker.DidNotReceiveWithAnyArgs().UnlockAsync(default!, default!, default!, default!, default);
     }
 
     [Fact]

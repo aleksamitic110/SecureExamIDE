@@ -20,10 +20,17 @@ namespace Web.Api.Features.Exams;
 // This is also the only place the size ceiling can be applied. A presigned URL lets the client PUT
 // whatever it likes, so an oversized object is deleted here rather than recorded - which is what
 // keeps the store from filling up with something no row will ever reference.
+//
+// The platform is the professor's statement of which computers the archive runs on - the server
+// cannot tell a MinGW build from a Linux one by looking at a zip, so it is taken as given.
 public static class AddExamDependency
 {
-    public sealed record Command(Guid ExamId, string ObjectKey, string Name, string Version)
-        : ICommand<Guid>;
+    public sealed record Command(
+        Guid ExamId,
+        string ObjectKey,
+        string Name,
+        string Version,
+        DependencyPlatform? Platform) : ICommand<Guid>;
 
     public sealed class Validator : AbstractValidator<Command>
     {
@@ -41,6 +48,17 @@ public static class AddExamDependency
                 .Must(v => DependencyVersion.Create(v).IsSuccess)
                 .WithMessage("Version is required, may contain only letters, digits, '.', '-', '_' and '+', "
                     + $"and must not exceed {DependencyVersion.MaxLength} characters.");
+
+            // Required rather than defaulted to Any: a Windows-only compiler silently marked Any
+            // would be offered to Linux students, who would find out only in the exam room.
+            string platformMessage =
+                $"Platform is required and must be one of: {string.Join(", ", Enum.GetNames<DependencyPlatform>())}.";
+
+            RuleFor(c => c.Platform)
+                .NotNull()
+                .WithMessage(platformMessage)
+                .IsInEnum()
+                .WithMessage(platformMessage);
         }
     }
 
@@ -74,6 +92,11 @@ public static class AddExamDependency
                 return Result.Failure<Guid>(versionResult.Error);
             }
 
+            if (command.Platform is not { } platform || !Enum.IsDefined(platform))
+            {
+                return Result.Failure<Guid>(ExamErrors.InvalidDependencyPlatform);
+            }
+
             ObjectKey objectKey = objectKeyResult.Value;
             DependencyName name = nameResult.Value;
             DependencyVersion version = versionResult.Value;
@@ -103,8 +126,15 @@ public static class AddExamDependency
                 return Result.Failure<Guid>(ExamErrors.ContentAlreadyCommitted);
             }
 
+            // The same build twice is a conflict, and so is an Any build next to a platform-specific
+            // one: a client would then be handed two copies of one tool and have no way to choose.
             bool alreadyAdded = await context.ExamDependencies.AnyAsync(
-                d => d.ExamPackageId == command.ExamId && d.Name == name && d.Version == version,
+                d => d.ExamPackageId == command.ExamId
+                    && d.Name == name
+                    && d.Version == version
+                    && (d.Platform == platform
+                        || d.Platform == DependencyPlatform.Any
+                        || platform == DependencyPlatform.Any),
                 cancellationToken);
 
             if (alreadyAdded)
@@ -141,6 +171,7 @@ public static class AddExamDependency
                 ExamPackageId = command.ExamId,
                 Name = name,
                 Version = version,
+                Platform = platform,
                 ContentType = contentType,
                 ObjectKey = objectKey,
 
@@ -161,7 +192,7 @@ public static class AddExamDependency
 
     public sealed class Endpoint : IEndpoint
     {
-        public sealed record Request(string ObjectKey, string Name, string Version);
+        public sealed record Request(string ObjectKey, string Name, string Version, DependencyPlatform? Platform);
 
         public void MapEndpoint(IEndpointRouteBuilder app)
         {
@@ -171,7 +202,12 @@ public static class AddExamDependency
                 ICommandHandler<Command, Guid> handler,
                 CancellationToken cancellationToken) =>
             {
-                var command = new Command(examId, request.ObjectKey, request.Name, request.Version);
+                var command = new Command(
+                    examId,
+                    request.ObjectKey,
+                    request.Name,
+                    request.Version,
+                    request.Platform);
 
                 Result<Guid> result = await handler.Handle(command, cancellationToken);
 

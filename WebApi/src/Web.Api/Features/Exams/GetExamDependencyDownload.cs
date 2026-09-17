@@ -24,6 +24,7 @@ public static class GetExamDependencyDownload
         Guid DependencyId,
         string Name,
         string Version,
+        DependencyPlatform Platform,
         string ContentType,
         long SizeBytes,
         string DownloadUrl,
@@ -46,6 +47,7 @@ public static class GetExamDependencyDownload
                 select new DependencyToDownload(
                     stored.Name.Value,
                     stored.Version.Value,
+                    stored.Platform,
                     stored.ContentType.Value,
                     stored.ObjectKey.Value,
                     stored.SizeBytes))
@@ -63,6 +65,7 @@ public static class GetExamDependencyDownload
                 query.DependencyId,
                 dependency.Name,
                 dependency.Version,
+                dependency.Platform,
                 dependency.ContentType,
                 dependency.SizeBytes,
                 downloadUrl,
@@ -72,6 +75,7 @@ public static class GetExamDependencyDownload
         private sealed record DependencyToDownload(
             string Name,
             string Version,
+            DependencyPlatform Platform,
             string ContentType,
             string ObjectKey,
             long SizeBytes);

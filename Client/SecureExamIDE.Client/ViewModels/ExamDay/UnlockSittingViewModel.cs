@@ -4,16 +4,20 @@ using SecureExamIDE.Client.Services.Api;
 using SecureExamIDE.Client.Services.Exams;
 using SecureExamIDE.Client.Services.Navigation;
 using SecureExamIDE.Client.Services.Unlock;
+using SecureExamIDE.Client.Services.Workspace;
 
 namespace SecureExamIDE.Client.ViewModels.ExamDay;
 
 // Takes the one-time code the professor gives out when the sitting starts and opens the package
 // with it, on this computer, with no network. The code is the lock; the clock is only shown, never
 // enforced, so a laptop with a wrong clock cannot shut a student out of their own exam.
+//
+// A sitting the student has finished stays closed: the code no longer opens it from here.
 public sealed partial class UnlockSittingViewModel(
     INavigationService navigation,
     IPackageUnlocker unlocker,
     ILocalExamLibrary library,
+    IWorkspaceStore workspace,
     TimeProvider timeProvider) : ViewModelBase
 {
     private DownloadedExam? _exam;
@@ -38,6 +42,13 @@ public sealed partial class UnlockSittingViewModel(
     [NotifyCanExecuteChangedFor(nameof(UnlockCommand))]
     private bool _isUnlocking;
 
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(UnlockCommand))]
+    [NotifyPropertyChangedFor(nameof(CanEnterCode))]
+    private bool _isFinished;
+
+    public bool CanEnterCode => !IsFinished;
+
     public void Initialize(DownloadedExam exam, DownloadedSitting sitting)
     {
         _exam = exam;
@@ -46,7 +57,8 @@ public sealed partial class UnlockSittingViewModel(
         var item = new LocalSittingItem(exam, sitting, timeProvider);
         ExamTitle = exam.Title;
         Details = $"{item.Subject} · {item.When}";
-        Status = item.Status switch
+        IsFinished = workspace.IsFinished(exam.ExamId, sitting.SittingId);
+        Status = IsFinished ? "You have finished this sitting. It cannot be opened again." : item.Status switch
         {
             "Upcoming" => "This sitting has not started yet. The professor gives out the code when it starts.",
             "Ended" => "This sitting has ended.",
@@ -57,7 +69,7 @@ public sealed partial class UnlockSittingViewModel(
     [RelayCommand(CanExecute = nameof(CanUnlock))]
     private async Task UnlockAsync()
     {
-        if (_exam is null || _sitting is null)
+        if (_exam is null || _sitting is null || IsFinished)
         {
             return;
         }
@@ -83,7 +95,7 @@ public sealed partial class UnlockSittingViewModel(
             Code = string.Empty;
 
             UnlockedExam unlocked = result.Value;
-            navigation.NavigateTo<ExamTasksViewModel>(page => page.Initialize(_exam, _sitting, unlocked));
+            navigation.NavigateTo<WorkspaceViewModel>(page => page.Initialize(_exam, _sitting, unlocked));
         }
         finally
         {
@@ -91,7 +103,7 @@ public sealed partial class UnlockSittingViewModel(
         }
     }
 
-    private bool CanUnlock() => !IsUnlocking;
+    private bool CanUnlock() => !IsUnlocking && !IsFinished;
 
     [RelayCommand]
     private void Back() => navigation.NavigateTo<DownloadedExamsViewModel>();

@@ -20,6 +20,7 @@ public sealed class ExamDependencyTests(IntegrationTestWebAppFactory factory) : 
         Guid Id,
         string Name,
         string Version,
+        string Platform,
         string ContentType,
         long SizeBytes);
 
@@ -81,10 +82,11 @@ public sealed class ExamDependencyTests(IntegrationTestWebAppFactory factory) : 
         Guid examId,
         string objectKey,
         string name = "GCC",
-        string version = "13.2.0") =>
+        string version = "13.2.0",
+        string? platform = "LinuxX64") =>
         await HttpClient.PostAsJsonAsync(
             $"exams/{examId}/dependencies",
-            new { objectKey, name, version });
+            new { objectKey, name, version, platform });
 
     private async Task AuthenticateAsProfessorAsync()
     {
@@ -136,6 +138,7 @@ public sealed class ExamDependencyTests(IntegrationTestWebAppFactory factory) : 
         body.Dependencies.Length.ShouldBe(1);
         body.Dependencies[0].Name.ShouldBe("GCC");
         body.Dependencies[0].Version.ShouldBe("13.2.0");
+        body.Dependencies[0].Platform.ShouldBe("LinuxX64");
 
         // Size and content type are read back from the store, never taken from the request.
         body.Dependencies[0].SizeBytes.ShouldBe("fake-toolchain-bytes".Length);
@@ -194,6 +197,51 @@ public sealed class ExamDependencyTests(IntegrationTestWebAppFactory factory) : 
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+    }
+
+    // One tool, one archive per operating system: a Windows and a Linux GCC of the same version.
+    [Fact]
+    public async Task Commit_Should_AcceptTheSameNameAndVersionForAnotherPlatform()
+    {
+        // Arrange
+        await AuthenticateAsProfessorAsync();
+        Guid examId = await CreateExamAsync();
+
+        UploadTicket linux = await UploadDependencyAsync(examId, "linux-gcc");
+        (await CommitAsync(examId, linux.ObjectKey, platform: "LinuxX64")).EnsureSuccessStatusCode();
+
+        UploadTicket windows = await UploadDependencyAsync(examId, "mingw-gcc");
+
+        // Act
+        HttpResponseMessage response = await CommitAsync(examId, windows.ObjectKey, platform: "WindowsX64");
+
+        // Assert
+        response.EnsureSuccessStatusCode();
+
+        ExamResponse body = (await HttpClient.GetFromJsonAsync<ExamResponse>($"exams/{examId}"))!;
+        body.Dependencies.Select(d => d.Platform).ShouldBe(["LinuxX64", "WindowsX64"], ignoreOrder: true);
+    }
+
+    // A missing platform is caught by the validator, an unknown one by the JSON binding; neither
+    // is quietly recorded as Any.
+    [Theory]
+    [InlineData(null)]
+    [InlineData("MacOs")]
+    public async Task Commit_Should_ReturnBadRequest_WhenPlatformIsMissingOrUnknown(string? platform)
+    {
+        // Arrange
+        await AuthenticateAsProfessorAsync();
+        Guid examId = await CreateExamAsync();
+        UploadTicket ticket = await UploadDependencyAsync(examId, "abc");
+
+        // Act
+        HttpResponseMessage response = await CommitAsync(examId, ticket.ObjectKey, platform: platform);
+
+        // Assert
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        ExamResponse body = (await HttpClient.GetFromJsonAsync<ExamResponse>($"exams/{examId}"))!;
+        body.Dependencies.ShouldBeEmpty();
     }
 
     [Fact]

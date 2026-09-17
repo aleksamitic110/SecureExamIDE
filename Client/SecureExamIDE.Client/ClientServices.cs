@@ -6,10 +6,12 @@ using SecureExamIDE.Client.Services.Api;
 using SecureExamIDE.Client.Services.Credentials;
 using SecureExamIDE.Client.Services.Downloads;
 using SecureExamIDE.Client.Services.Exams;
+using SecureExamIDE.Client.Services.Lockdown;
 using SecureExamIDE.Client.Services.Navigation;
 using SecureExamIDE.Client.Services.Session;
 using SecureExamIDE.Client.Services.Storage;
 using SecureExamIDE.Client.Services.Unlock;
+using SecureExamIDE.Client.Services.Workspace;
 using SecureExamIDE.Client.ViewModels;
 using SecureExamIDE.Client.ViewModels.Account;
 using SecureExamIDE.Client.ViewModels.ExamDay;
@@ -46,6 +48,9 @@ internal static class ClientServices
         services.AddSingleton<IExamCatalog, ExamCatalog>();
         services.AddSingleton<IExamDownloadService, ExamDownloadService>();
         services.AddSingleton<IPackageUnlocker, PackageUnlocker>();
+        services.AddSingleton<IWorkspaceStore, WorkspaceStore>();
+        services.AddSingleton<WindowExamLockdown>();
+        services.AddSingleton<IExamLockdown>(provider => provider.GetRequiredService<WindowExamLockdown>());
 
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<INavigationService, NavigationService>();
@@ -59,7 +64,7 @@ internal static class ClientServices
         services.AddTransient<ExamDetailsViewModel>();
         services.AddTransient<DownloadedExamsViewModel>();
         services.AddTransient<UnlockSittingViewModel>();
-        services.AddTransient<ExamTasksViewModel>();
+        services.AddTransient<WorkspaceViewModel>();
         services.AddTransient<ProfessorHomeViewModel>();
 
         return services.BuildServiceProvider();

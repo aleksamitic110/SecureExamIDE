@@ -41,9 +41,15 @@ public static class ExamErrors
         "Exams.ContentAlreadyCommitted",
         "The provided object key has already been recorded against this exam");
 
+    // Also raised for an Any build next to a platform-specific build of the same name and version,
+    // since a client would then be offered both.
     public static readonly Error DependencyAlreadyAdded = Error.Conflict(
         "Exams.DependencyAlreadyAdded",
-        "This exam already has a dependency with the same name and version");
+        "This exam already has a dependency with the same name and version for this platform");
+
+    public static readonly Error InvalidDependencyPlatform = Error.Problem(
+        "Exams.InvalidDependencyPlatform",
+        "The dependency platform is missing or not recognised");
 
     // Publishing is what makes an exam visible to students, so it is refused unless there is
     // something for them to download.

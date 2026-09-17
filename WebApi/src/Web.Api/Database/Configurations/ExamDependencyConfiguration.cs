@@ -19,6 +19,10 @@ internal sealed class ExamDependencyConfiguration : IEntityTypeConfiguration<Exa
             .HasConversion(version => version.Value, value => DependencyVersion.FromTrusted(value))
             .HasMaxLength(DependencyVersion.MaxLength);
 
+        builder.Property(d => d.Platform)
+            .HasConversion<string>()
+            .HasMaxLength(PlatformMaxLength);
+
         builder.Property(d => d.ContentType)
             .HasConversion(contentType => contentType.Value, value => ContentType.FromTrusted(value))
             .HasMaxLength(ContentType.MaxLength);
@@ -31,10 +35,13 @@ internal sealed class ExamDependencyConfiguration : IEntityTypeConfiguration<Exa
         // by the database itself rather than only by the handler's check.
         builder.HasIndex(d => d.ObjectKey).IsUnique();
 
-        // Name and version identify a dependency within its exam, so the same tool cannot be
-        // attached twice under two different object keys.
-        builder.HasIndex(d => new { d.ExamPackageId, d.Name, d.Version }).IsUnique();
+        // Name, version and platform identify a dependency within its exam, so the same build of a
+        // tool cannot be attached twice under two different object keys, while one tool can still
+        // come as a Windows and a Linux archive.
+        builder.HasIndex(d => new { d.ExamPackageId, d.Name, d.Version, d.Platform }).IsUnique();
 
         builder.HasOne<ExamPackage>().WithMany().HasForeignKey(d => d.ExamPackageId);
     }
+
+    private const int PlatformMaxLength = 20;
 }

@@ -16,7 +16,13 @@ public sealed class DependencyDownloadTests(IntegrationTestWebAppFactory factory
 
     private sealed record UploadedContent(string ObjectKey, long SizeBytes, string Sha256);
 
-    private sealed record DependencyItem(Guid Id, string Name, string Version, string ContentType, long SizeBytes);
+    private sealed record DependencyItem(
+        Guid Id,
+        string Name,
+        string Version,
+        string Platform,
+        string ContentType,
+        long SizeBytes);
 
     private sealed record DependencyPage(DependencyItem[] Items, int TotalCount);
 
@@ -77,7 +83,7 @@ public sealed class DependencyDownloadTests(IntegrationTestWebAppFactory factory
 
         (await HttpClient.PostAsJsonAsync(
             $"exams/{examId}/dependencies",
-            new { objectKey = ticket.ObjectKey, name = "GCC", version = "14.2.0" })).EnsureSuccessStatusCode();
+            new { objectKey = ticket.ObjectKey, name = "GCC", version = "14.2.0", platform = "WindowsX64" })).EnsureSuccessStatusCode();
 
         // The owner's view is the one place a draft's dependency ids can be read.
         OwnerExamView ownerView = (await HttpClient.GetFromJsonAsync<OwnerExamView>($"exams/{examId}"))!;
@@ -117,6 +123,7 @@ public sealed class DependencyDownloadTests(IntegrationTestWebAppFactory factory
         item.Id.ShouldBe(exam.DependencyId);
         item.Name.ShouldBe("GCC");
         item.Version.ShouldBe("14.2.0");
+        item.Platform.ShouldBe("WindowsX64");
         item.ContentType.ShouldBe("application/gzip");
         item.SizeBytes.ShouldBe(Toolchain.Length);
 
@@ -129,6 +136,29 @@ public sealed class DependencyDownloadTests(IntegrationTestWebAppFactory factory
 
         fetched.ShouldBe(Toolchain);
         link.SizeBytes.ShouldBe(Toolchain.Length);
+    }
+
+    // A client names its own platform and is offered only what it can run; a mistyped platform is a
+    // 400 rather than the unfiltered list.
+    [Fact]
+    public async Task AStudent_Should_SeeOnlyTheirPlatformsBuilds_WhenFilteringByPlatform()
+    {
+        // Arrange - the prepared exam's only dependency is a Windows build.
+        PreparedExam exam = await PrepareExamAsync(publish: true);
+        await AuthenticateAsStudentAsync();
+
+        // Act
+        DependencyPage windows = (await HttpClient.GetFromJsonAsync<DependencyPage>(
+            $"exams/{exam.ExamId}/dependencies?platform=WindowsX64"))!;
+        DependencyPage linux = (await HttpClient.GetFromJsonAsync<DependencyPage>(
+            $"exams/{exam.ExamId}/dependencies?platform=LinuxX64"))!;
+        HttpResponseMessage unknown = await HttpClient.GetAsync(
+            $"exams/{exam.ExamId}/dependencies?platform=Amiga");
+
+        // Assert
+        windows.Items.Select(d => d.Id).ShouldBe([exam.DependencyId]);
+        linux.TotalCount.ShouldBe(0);
+        unknown.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
     // Nothing about a draft reaches a student: not the list, and not a download even with the id.

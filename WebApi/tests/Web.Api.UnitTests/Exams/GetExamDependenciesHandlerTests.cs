@@ -38,6 +38,7 @@ public sealed class GetExamDependenciesHandlerTests : BaseHandlerTest
         GetExamDependencies.Response first = result.Value.Items[0];
         first.Name.ShouldBe("Temurin JDK");
         first.Version.ShouldBe("21.0.4");
+        first.Platform.ShouldBe(DependencyPlatform.Any);
         first.ContentType.ShouldBe("application/zip");
         first.SizeBytes.ShouldBe(190_000_000);
     }
@@ -64,6 +65,37 @@ public sealed class GetExamDependenciesHandlerTests : BaseHandlerTest
         // Assert
         result.Value.TotalCount.ShouldBe(1);
         result.Value.Items.Single().Id.ShouldBe(own.Id);
+    }
+
+    // What a Windows client asks for: its own builds and the ones that run anywhere, never Linux's.
+    [Fact]
+    public async Task Handle_Should_ListOnlyThatPlatformsBuildsAndAny_WhenFilteredByPlatform()
+    {
+        // Arrange
+        await using ApplicationDbContext context = CreateDbContext();
+        Guid examId = await DependencySeed.SeedExamAsync(context);
+
+        ExamDependency windows = await DependencySeed.SeedDependencyAsync(
+            context, examId, "GCC", "14.2.0", 1_000, Attached, DependencyPlatform.WindowsX64);
+        await DependencySeed.SeedDependencyAsync(
+            context, examId, "GCC", "14.2.0", 1_000, Attached.AddMinutes(1), DependencyPlatform.LinuxX64);
+        ExamDependency headers = await DependencySeed.SeedDependencyAsync(
+            context, examId, "Course headers", "1.0", 1_000, Attached.AddMinutes(2), DependencyPlatform.Any);
+
+        var handler = new GetExamDependencies.Handler(context);
+
+        // Act
+        Result<PagedList<GetExamDependencies.Response>> filtered = await handler.Handle(
+            new GetExamDependencies.Query(examId, 1, 20, DependencyPlatform.WindowsX64),
+            CancellationToken.None);
+        Result<PagedList<GetExamDependencies.Response>> unfiltered = await handler.Handle(
+            QueryFor(examId),
+            CancellationToken.None);
+
+        // Assert
+        filtered.Value.TotalCount.ShouldBe(2);
+        filtered.Value.Items.Select(d => d.Id).ShouldBe([windows.Id, headers.Id]);
+        unfiltered.Value.TotalCount.ShouldBe(3);
     }
 
     // A draft is invisible to students, so its dependencies are too - reported exactly as an exam

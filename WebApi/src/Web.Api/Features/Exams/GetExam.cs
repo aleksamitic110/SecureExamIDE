@@ -43,6 +43,8 @@ public static class GetExam
 
         public string Version { get; init; }
 
+        public DependencyPlatform Platform { get; init; }
+
         public string ContentType { get; init; }
 
         public long SizeBytes { get; init; }
@@ -100,6 +102,7 @@ public static class GetExam
                             Id = d.Id,
                             Name = d.Name.Value,
                             Version = d.Version.Value,
+                            Platform = d.Platform,
                             ContentType = d.ContentType.Value,
                             SizeBytes = d.SizeBytes
                         })

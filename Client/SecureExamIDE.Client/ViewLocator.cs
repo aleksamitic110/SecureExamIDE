@@ -26,7 +26,7 @@ public sealed class ViewLocator : IDataTemplate
         [typeof(ExamDetailsViewModel)] = () => new ExamDetailsView(),
         [typeof(DownloadedExamsViewModel)] = () => new DownloadedExamsView(),
         [typeof(UnlockSittingViewModel)] = () => new UnlockSittingView(),
-        [typeof(ExamTasksViewModel)] = () => new ExamTasksView(),
+        [typeof(WorkspaceViewModel)] = () => new WorkspaceView(),
         [typeof(ProfessorHomeViewModel)] = () => new ProfessorHomeView()
     };
 

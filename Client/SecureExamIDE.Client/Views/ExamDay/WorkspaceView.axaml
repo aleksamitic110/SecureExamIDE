@@ -1,0 +1,217 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SecureExamIDE.Client.ViewModels.ExamDay"
+             xmlns:ae="https://github.com/avaloniaui/avaloniaedit"
+             x:Class="SecureExamIDE.Client.Views.ExamDay.WorkspaceView"
+             x:DataType="vm:WorkspaceViewModel">
+
+  <UserControl.KeyBindings>
+    <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveCommand}" />
+  </UserControl.KeyBindings>
+
+  <UserControl.Styles>
+    <Style Selector="Border.panel">
+      <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundAltHighBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SystemControlForegroundBaseLowBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="TextBlock.panelTitle">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Opacity" Value="0.8" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.tab">
+      <Setter Property="Padding" Value="12,6,4,6" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SystemControlForegroundBaseLowBrush}" />
+      <Setter Property="BorderThickness" Value="0,0,1,0" />
+    </Style>
+    <Style Selector="Border.tab.active">
+      <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundBaseLowBrush}" />
+    </Style>
+    <Style Selector="Button.small">
+      <Setter Property="Padding" Value="6,0" />
+      <Setter Property="MinHeight" Value="22" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+  </UserControl.Styles>
+
+  <Panel>
+    <DockPanel>
+      <!-- Header: what exam this is, and the only way out. -->
+      <Border DockPanel.Dock="Top" Classes="panel" BorderThickness="0,0,0,1" Padding="16,10">
+        <Grid ColumnDefinitions="*,Auto,Auto">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="itemTitle" Text="{Binding ExamTitle}" />
+            <TextBlock Classes="info" Text="{Binding Details}" />
+          </StackPanel>
+          <TextBlock Grid.Column="1" Classes="error" VerticalAlignment="Center" Margin="0,0,16,0"
+                     Text="{Binding LeftWindowNote}" IsVisible="{Binding HasLeftWindow}" />
+          <Button Grid.Column="2" Classes="accent" Content="Finish exam" VerticalAlignment="Center"
+                  Command="{Binding AskToFinishCommand}" />
+        </Grid>
+      </Border>
+
+      <TextBlock DockPanel.Dock="Top" Classes="error" Margin="16,8" Text="{Binding ErrorMessage}"
+                 IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+      <Grid ColumnDefinitions="220,4,*,4,360">
+        <!-- Files -->
+        <Border Classes="panel" BorderThickness="0,0,1,0">
+          <DockPanel>
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="12,8">
+              <TextBlock Classes="panelTitle" Text="Files" />
+              <Button Grid.Column="1" Classes="small" Content="+ New file" Command="{Binding StartNewFileCommand}" />
+            </Grid>
+
+            <StackPanel DockPanel.Dock="Top" Margin="8,0,8,8" Spacing="6" IsVisible="{Binding IsNamingFile}">
+              <TextBox Text="{Binding FileName}" PlaceholderText="main.c">
+                <TextBox.KeyBindings>
+                  <KeyBinding Gesture="Enter" Command="{Binding ConfirmFileNameCommand}" />
+                  <KeyBinding Gesture="Escape" Command="{Binding CancelNamingCommand}" />
+                </TextBox.KeyBindings>
+              </TextBox>
+              <TextBlock Classes="error" FontSize="12" Text="{Binding FileNameError}"
+                         IsVisible="{Binding FileNameError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
+                <Button Classes="small" Content="Cancel" Command="{Binding CancelNamingCommand}" />
+                <Button Classes="small accent" Content="OK" Command="{Binding ConfirmFileNameCommand}" />
+              </StackPanel>
+            </StackPanel>
+
+            <TextBlock DockPanel.Dock="Top" Classes="info" Margin="12,4" FontSize="12"
+                       Text="No files yet. Create one to start." IsVisible="{Binding !Files.Count}" />
+
+            <ListBox ItemsSource="{Binding Files}" SelectedItem="{Binding ActiveFile, Mode=OneWay}" Background="Transparent">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:WorkspaceFileItem">
+                  <Grid ColumnDefinitions="*,Auto,Auto" Background="Transparent">
+                    <Button Classes="small" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                            Content="{Binding Name}" FontSize="13"
+                            Command="{Binding $parent[ListBox].((vm:WorkspaceViewModel)DataContext).OpenCommand}"
+                            CommandParameter="{Binding}" />
+                    <Button Grid.Column="1" Classes="small" Content="Rename" ToolTip.Tip="Rename"
+                            Command="{Binding $parent[ListBox].((vm:WorkspaceViewModel)DataContext).StartRenameCommand}"
+                            CommandParameter="{Binding}" />
+                    <Button Grid.Column="2" Classes="small" Content="✕" ToolTip.Tip="Delete"
+                            Command="{Binding $parent[ListBox].((vm:WorkspaceViewModel)DataContext).AskToDeleteCommand}"
+                            CommandParameter="{Binding}" />
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+        </Border>
+
+        <GridSplitter Grid.Column="1" ResizeDirection="Columns" Background="Transparent" />
+
+        <!-- Editor with tabs, and the output panel underneath -->
+        <Grid Grid.Column="2" RowDefinitions="Auto,*,4,160">
+          <Border Classes="panel" BorderThickness="0,0,0,1">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+              <ItemsControl ItemsSource="{Binding OpenFiles}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:WorkspaceFileItem">
+                    <Border Classes="tab" Classes.active="{Binding IsActive}">
+                      <StackPanel Orientation="Horizontal" Spacing="4">
+                        <Button Classes="small" FontSize="13"
+                                Command="{Binding $parent[ItemsControl].((vm:WorkspaceViewModel)DataContext).OpenCommand}"
+                                CommandParameter="{Binding}">
+                          <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="{Binding Name}" />
+                            <TextBlock Text="●" FontSize="10" VerticalAlignment="Center" IsVisible="{Binding IsDirty}"
+                                       ToolTip.Tip="Saving shortly" />
+                          </StackPanel>
+                        </Button>
+                        <Button Classes="small" Content="✕" ToolTip.Tip="Close tab"
+                                Command="{Binding $parent[ItemsControl].((vm:WorkspaceViewModel)DataContext).CloseTabCommand}"
+                                CommandParameter="{Binding}" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Border>
+
+          <ae:TextEditor Grid.Row="1" x:Name="Editor"
+                         Document="{Binding ActiveFile.Document}"
+                         IsVisible="{Binding HasActiveFile}"
+                         ShowLineNumbers="True"
+                         FontFamily="Cascadia Mono, Consolas, DejaVu Sans Mono, Menlo, monospace"
+                         FontSize="14"
+                         Padding="4" />
+          <TextBlock Grid.Row="1" Classes="info" HorizontalAlignment="Center" VerticalAlignment="Center"
+                     Text="Open a file on the left, or create one." IsVisible="{Binding HasNoActiveFile}" />
+
+          <GridSplitter Grid.Row="2" ResizeDirection="Rows" Background="Transparent" />
+
+          <Border Grid.Row="3" Classes="panel" BorderThickness="0,1,0,0">
+            <DockPanel>
+              <TextBlock DockPanel.Dock="Top" Classes="panelTitle" Margin="12,8" Text="Output" />
+              <TextBlock Classes="info" Margin="12,0" FontSize="12"
+                         Text="Compiling and running programs comes with the toolchains, in the next part of this step." />
+            </DockPanel>
+          </Border>
+        </Grid>
+
+        <GridSplitter Grid.Column="3" ResizeDirection="Columns" Background="Transparent" />
+
+        <!-- Tasks -->
+        <Border Grid.Column="4" Classes="panel" BorderThickness="1,0,0,0">
+          <DockPanel>
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*" Margin="12,8">
+              <TextBlock Classes="panelTitle" Text="Tasks" Margin="0,0,12,0" />
+              <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                        ItemsSource="{Binding Tasks}" SelectedItem="{Binding SelectedTask}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ExamTaskItem">
+                    <TextBlock Text="{Binding Name}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+            </Grid>
+            <Panel>
+              <TextBox IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" BorderThickness="0"
+                       FontFamily="Cascadia Mono, Consolas, DejaVu Sans Mono, Menlo, monospace"
+                       Text="{Binding SelectedTaskText}" IsVisible="{Binding IsSelectedTaskTextShown}" />
+              <TextBlock Classes="info" Margin="12" IsVisible="{Binding IsSelectedTaskBinary}"
+                         Text="This task file cannot be shown yet. PDF tasks will be shown here in a later part of this step." />
+            </Panel>
+          </DockPanel>
+        </Border>
+      </Grid>
+    </DockPanel>
+
+    <!-- Confirmations are drawn inside the window rather than as dialogs: a separate window would
+         take the focus from the locked exam window. -->
+    <Border Background="#99000000" IsVisible="{Binding IsOverlayShown}">
+      <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Panel>
+          <StackPanel Classes="form" IsVisible="{Binding IsConfirmingFinish}">
+            <TextBlock Classes="title" Text="Finish the exam?" />
+            <TextBlock Classes="info"
+                       Text="Your files are saved and the exam is closed. You will not be able to open this sitting again to change your work." />
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+              <Button Content="Keep working" Command="{Binding CancelFinishCommand}" />
+              <Button Classes="accent" Content="Finish exam" Command="{Binding ConfirmFinishCommand}" />
+            </StackPanel>
+          </StackPanel>
+          <StackPanel Classes="form" IsVisible="{Binding IsConfirmingDelete}">
+            <TextBlock Classes="title" Text="Delete this file?" />
+            <TextBlock Classes="info" Text="{Binding FileToDelete.Name, StringFormat='{}{0} will be deleted. This cannot be undone.'}" />
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+              <Button Content="Cancel" Command="{Binding CancelDeleteCommand}" />
+              <Button Classes="accent" Content="Delete" Command="{Binding ConfirmDeleteCommand}" />
+            </StackPanel>
+          </StackPanel>
+        </Panel>
+      </Border>
+    </Border>
+  </Panel>
+</UserControl>

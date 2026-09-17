@@ -56,6 +56,7 @@ public sealed class GetExamDependencyDownloadHandlerTests : BaseHandlerTest
         download.ExpiresAt.ShouldBe(Now.AddHours(2));
         download.Name.ShouldBe("Temurin JDK");
         download.Version.ShouldBe("21.0.4");
+        download.Platform.ShouldBe(DependencyPlatform.Any);
         download.SizeBytes.ShouldBe(190_000_000);
 
         await storageService.Received(1).CreatePresignedDownloadUrlAsync(

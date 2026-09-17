@@ -1,3 +1,4 @@
+using FluentValidation.Results;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Web.Api.Authentication;
@@ -65,7 +66,7 @@ public sealed class AddExamDependencyHandlerTests : BaseHandlerTest
 
         // Act
         Result<Guid> result = await handler.Handle(
-            new AddExamDependency.Command(examId, objectKey, "GCC", "13.2.0"),
+            new AddExamDependency.Command(examId, objectKey, "GCC", "13.2.0", DependencyPlatform.LinuxX64),
             CancellationToken.None);
 
         // Assert
@@ -89,7 +90,7 @@ public sealed class AddExamDependencyHandlerTests : BaseHandlerTest
 
         // Act
         Result<Guid> result = await handler.Handle(
-            new AddExamDependency.Command(examId, fileKey, "GCC", "13.2.0"),
+            new AddExamDependency.Command(examId, fileKey, "GCC", "13.2.0", DependencyPlatform.LinuxX64),
             CancellationToken.None);
 
         // Assert
@@ -111,7 +112,7 @@ public sealed class AddExamDependencyHandlerTests : BaseHandlerTest
 
         // Act
         Result<Guid> result = await handler.Handle(
-            new AddExamDependency.Command(examId, otherExamKey, "GCC", "13.2.0"),
+            new AddExamDependency.Command(examId, otherExamKey, "GCC", "13.2.0", DependencyPlatform.LinuxX64),
             CancellationToken.None);
 
         // Assert
@@ -131,7 +132,7 @@ public sealed class AddExamDependencyHandlerTests : BaseHandlerTest
 
         // Act
         Result<Guid> result = await handler.Handle(
-            new AddExamDependency.Command(examId, objectKey, "GCC", "13.2.0"),
+            new AddExamDependency.Command(examId, objectKey, "GCC", "13.2.0", DependencyPlatform.LinuxX64),
             CancellationToken.None);
 
         // Assert
@@ -155,12 +156,12 @@ public sealed class AddExamDependencyHandlerTests : BaseHandlerTest
         AddExamDependency.Handler handler = CreateHandler(context, storageService);
 
         await handler.Handle(
-            new AddExamDependency.Command(examId, firstKey, "GCC", "13.2.0"),
+            new AddExamDependency.Command(examId, firstKey, "GCC", "13.2.0", DependencyPlatform.LinuxX64),
             CancellationToken.None);
 
         // Act
         Result<Guid> result = await handler.Handle(
-            new AddExamDependency.Command(examId, secondKey, "GCC", "13.2.0"),
+            new AddExamDependency.Command(examId, secondKey, "GCC", "13.2.0", DependencyPlatform.LinuxX64),
             CancellationToken.None);
 
         // Assert
@@ -178,7 +179,7 @@ public sealed class AddExamDependencyHandlerTests : BaseHandlerTest
         string objectKey = $"exams/{examId}/dependencies/{Guid.NewGuid()}";
 
         AddExamDependency.Handler handler = CreateHandler(context, StorageHolding(objectKey));
-        var command = new AddExamDependency.Command(examId, objectKey, "GCC", "13.2.0");
+        var command = new AddExamDependency.Command(examId, objectKey, "GCC", "13.2.0", DependencyPlatform.LinuxX64);
 
         await handler.Handle(command, CancellationToken.None);
 
@@ -203,7 +204,7 @@ public sealed class AddExamDependencyHandlerTests : BaseHandlerTest
 
         // Act
         Result<Guid> result = await handler.Handle(
-            new AddExamDependency.Command(examId, objectKey, "GCC", "13.2.0"),
+            new AddExamDependency.Command(examId, objectKey, "GCC", "13.2.0", DependencyPlatform.LinuxX64),
             CancellationToken.None);
 
         // Assert
@@ -226,7 +227,7 @@ public sealed class AddExamDependencyHandlerTests : BaseHandlerTest
 
         // Act
         Result<Guid> result = await handler.Handle(
-            new AddExamDependency.Command(examId, objectKey, " GCC ", "13.2.0"),
+            new AddExamDependency.Command(examId, objectKey, " GCC ", "13.2.0", DependencyPlatform.LinuxX64),
             CancellationToken.None);
 
         // Assert
@@ -238,6 +239,7 @@ public sealed class AddExamDependencyHandlerTests : BaseHandlerTest
         dependency.ObjectKey!.Value.ShouldBe(objectKey);
         dependency.Name!.Value.ShouldBe("GCC");
         dependency.Version!.Value.ShouldBe("13.2.0");
+        dependency.Platform.ShouldBe(DependencyPlatform.LinuxX64);
     }
 
     [Fact]
@@ -253,7 +255,7 @@ public sealed class AddExamDependencyHandlerTests : BaseHandlerTest
 
         // Act
         await handler.Handle(
-            new AddExamDependency.Command(examId, objectKey, "GCC", "13.2.0"),
+            new AddExamDependency.Command(examId, objectKey, "GCC", "13.2.0", DependencyPlatform.LinuxX64),
             CancellationToken.None);
 
         // Assert
@@ -277,7 +279,7 @@ public sealed class AddExamDependencyHandlerTests : BaseHandlerTest
 
         // Act
         Result<Guid> result = await handler.Handle(
-            new AddExamDependency.Command(examId, objectKey, "GCC", "13.2.0"),
+            new AddExamDependency.Command(examId, objectKey, "GCC", "13.2.0", DependencyPlatform.LinuxX64),
             CancellationToken.None);
 
         // Assert
@@ -301,12 +303,124 @@ public sealed class AddExamDependencyHandlerTests : BaseHandlerTest
 
         // Act
         Result<Guid> result = await handler.Handle(
-            new AddExamDependency.Command(examId, objectKey, "GCC", "13.2.0"),
+            new AddExamDependency.Command(examId, objectKey, "GCC", "13.2.0", DependencyPlatform.LinuxX64),
             CancellationToken.None);
 
         // Assert
         result.IsSuccess.ShouldBeTrue();
         await storageService.DidNotReceiveWithAnyArgs().DeleteAsync(default!, default);
+    }
+
+    // The point of the platform: one tool, one archive per operating system.
+    [Fact]
+    public async Task Handle_Should_AcceptTheSameNameAndVersionForAnotherPlatform()
+    {
+        // Arrange
+        await using ApplicationDbContext context = CreateDbContext();
+        Guid examId = await SeedExamAsync(context, ProfessorId);
+        string linuxKey = $"exams/{examId}/dependencies/{Guid.NewGuid()}";
+        string windowsKey = $"exams/{examId}/dependencies/{Guid.NewGuid()}";
+
+        AddExamDependency.Handler handler = CreateHandler(context, StorageHoldingAnything());
+
+        await handler.Handle(
+            new AddExamDependency.Command(examId, linuxKey, "GCC", "13.2.0", DependencyPlatform.LinuxX64),
+            CancellationToken.None);
+
+        // Act
+        Result<Guid> result = await handler.Handle(
+            new AddExamDependency.Command(examId, windowsKey, "GCC", "13.2.0", DependencyPlatform.WindowsX64),
+            CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.ShouldBeTrue();
+        (await context.ExamDependencies.Select(d => d.Platform).ToListAsync())
+            .ShouldBe([DependencyPlatform.LinuxX64, DependencyPlatform.WindowsX64], ignoreOrder: true);
+    }
+
+    // An Any build next to a platform build of the same tool would hand a client two copies.
+    [Theory]
+    [InlineData(DependencyPlatform.Any, DependencyPlatform.WindowsX64)]
+    [InlineData(DependencyPlatform.WindowsX64, DependencyPlatform.Any)]
+    public async Task Handle_Should_ReturnConflict_WhenAnAnyBuildMeetsAPlatformBuildOfTheSameTool(
+        DependencyPlatform first,
+        DependencyPlatform second)
+    {
+        // Arrange
+        await using ApplicationDbContext context = CreateDbContext();
+        Guid examId = await SeedExamAsync(context, ProfessorId);
+        string firstKey = $"exams/{examId}/dependencies/{Guid.NewGuid()}";
+        string secondKey = $"exams/{examId}/dependencies/{Guid.NewGuid()}";
+
+        AddExamDependency.Handler handler = CreateHandler(context, StorageHoldingAnything());
+
+        await handler.Handle(
+            new AddExamDependency.Command(examId, firstKey, "GCC", "13.2.0", first),
+            CancellationToken.None);
+
+        // Act
+        Result<Guid> result = await handler.Handle(
+            new AddExamDependency.Command(examId, secondKey, "GCC", "13.2.0", second),
+            CancellationToken.None);
+
+        // Assert
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBe(ExamErrors.DependencyAlreadyAdded);
+        (await context.ExamDependencies.CountAsync()).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Handle_Should_WriteNoRow_WhenThePlatformIsMissing()
+    {
+        // Arrange
+        await using ApplicationDbContext context = CreateDbContext();
+        Guid examId = await SeedExamAsync(context, ProfessorId);
+        string objectKey = $"exams/{examId}/dependencies/{Guid.NewGuid()}";
+
+        AddExamDependency.Handler handler = CreateHandler(context, StorageHolding(objectKey));
+
+        // Act
+        Result<Guid> result = await handler.Handle(
+            new AddExamDependency.Command(examId, objectKey, "GCC", "13.2.0", null),
+            CancellationToken.None);
+
+        // Assert
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBe(ExamErrors.InvalidDependencyPlatform);
+        (await context.ExamDependencies.CountAsync()).ShouldBe(0);
+    }
+
+    // Required, not defaulted to Any: a Windows-only compiler must never be offered to Linux
+    // students because the professor forgot to say.
+    [Theory]
+    [InlineData(null)]
+    [InlineData(99)]
+    public void Validator_Should_RejectAMissingOrUnknownPlatform(int? platform)
+    {
+        // Arrange
+        var validator = new AddExamDependency.Validator();
+        var command = new AddExamDependency.Command(
+            Guid.NewGuid(),
+            $"exams/{Guid.NewGuid()}/dependencies/{Guid.NewGuid()}",
+            "GCC",
+            "13.2.0",
+            (DependencyPlatform?)platform);
+
+        // Act
+        ValidationResult result = validator.Validate(command);
+
+        // Assert
+        result.IsValid.ShouldBeFalse();
+        result.Errors.ShouldContain(e => e.PropertyName == nameof(AddExamDependency.Command.Platform));
+    }
+
+    private static IStorageService StorageHoldingAnything()
+    {
+        IStorageService storageService = Substitute.For<IStorageService>();
+        storageService.StatAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo => new StorageObjectInfo(callInfo.Arg<string>(), 3, "application/zip"));
+
+        return storageService;
     }
 
     private static async Task<Guid> SeedExamAsync(

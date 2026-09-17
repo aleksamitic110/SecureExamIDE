@@ -76,7 +76,7 @@ public sealed class DraftCorrectionTests(IntegrationTestWebAppFactory factory) :
 
         (await HttpClient.PostAsJsonAsync(
             $"exams/{examId}/dependencies",
-            new { objectKey = ticket.ObjectKey, name = "GCC", version = "14.2.0" })).EnsureSuccessStatusCode();
+            new { objectKey = ticket.ObjectKey, name = "GCC", version = "14.2.0", platform = "LinuxX64" })).EnsureSuccessStatusCode();
 
         return new Draft(examId, file.ObjectKey, ticket.ObjectKey);
     }

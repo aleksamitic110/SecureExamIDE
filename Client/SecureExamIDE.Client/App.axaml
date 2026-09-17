@@ -10,6 +10,7 @@
 
   <Application.Styles>
     <FluentTheme />
+    <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
 
     <!-- The account screens share one look: a centred card holding a narrow form. -->
     <Style Selector="Border.card">

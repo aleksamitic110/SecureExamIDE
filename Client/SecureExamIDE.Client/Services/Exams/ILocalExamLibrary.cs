@@ -6,9 +6,12 @@ namespace SecureExamIDE.Client.Services.Exams;
 //   exams/{examId}/exam.json
 //   exams/{examId}/sittings/{sittingId}/package.bin      sealed, opened only with the one-time code
 //   exams/{examId}/sittings/{sittingId}/package.hdr
+//   exams/{examId}/sittings/{sittingId}/workspace/     the student's own work (IWorkspaceStore)
 //   exams/{examId}/dependencies/{dependencyId}{extension}
 public interface ILocalExamLibrary
 {
+    string SittingDirectory(Guid examId, Guid sittingId);
+
     string PackagePath(Guid examId, Guid sittingId);
 
     string HeaderPath(Guid examId, Guid sittingId);

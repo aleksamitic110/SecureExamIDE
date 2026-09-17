@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
+using SecureExamIDE.Client.Services.Lockdown;
 using SecureExamIDE.Client.Services.Navigation;
 using SecureExamIDE.Client.ViewModels;
 using SecureExamIDE.Client.ViewModels.Account;
@@ -24,10 +25,15 @@ public partial class App : Application
         {
             _services = ClientServices.Build();
 
-            desktop.MainWindow = new MainWindow
+            var mainWindow = new MainWindow
             {
                 DataContext = _services.GetRequiredService<MainWindowViewModel>()
             };
+
+            desktop.MainWindow = mainWindow;
+
+            // The exam lockdown works on this window: fullscreen, on top, and not closable during an exam.
+            _services.GetRequiredService<WindowExamLockdown>().Attach(mainWindow, desktop);
 
             desktop.ShutdownRequested += (_, _) => _services.Dispose();
 
