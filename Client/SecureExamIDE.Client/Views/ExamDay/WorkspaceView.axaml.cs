@@ -12,6 +12,13 @@ namespace SecureExamIDE.Client.Views.ExamDay;
 // grammar for the open file's extension happens here.
 public partial class WorkspaceView : UserControl
 {
+    // The widths the student last dragged the panels to, so putting a panel away and bringing it back
+    // does not lose its size. A hidden panel's column is collapsed to nothing, which is what gives the
+    // room to the editor - an invisible panel alone would leave its column sitting there empty.
+    private GridLength _filesWidth = new(220);
+    private GridLength _tasksWidth = new(360);
+    private GridLength _consoleHeight = new(160);
+
     private RegistryOptions? _grammars;
     private TextMate.Installation? _textMate;
     private WorkspaceViewModel? _viewModel;
@@ -57,15 +64,88 @@ public partial class WorkspaceView : UserControl
         }
 
         ApplyGrammar();
+        ApplyPanels();
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(WorkspaceViewModel.ActiveFile))
+        switch (e.PropertyName)
         {
-            ApplyGrammar();
+            case nameof(WorkspaceViewModel.ActiveFile):
+                ApplyGrammar();
+                break;
+
+            case nameof(WorkspaceViewModel.IsFilesPanelShown):
+            case nameof(WorkspaceViewModel.IsTasksPanelShown):
+            case nameof(WorkspaceViewModel.IsConsolePanelShown):
+                ApplyPanels();
+                break;
+
+            default:
+                break;
         }
     }
+
+    private void ApplyPanels()
+    {
+        if (_viewModel is null)
+        {
+            return;
+        }
+
+        Collapse(PanelGrid.ColumnDefinitions[FilesColumn], PanelGrid.ColumnDefinitions[FilesSplitterColumn], _viewModel.IsFilesPanelShown, ref _filesWidth);
+        Collapse(PanelGrid.ColumnDefinitions[TasksColumn], PanelGrid.ColumnDefinitions[TasksSplitterColumn], _viewModel.IsTasksPanelShown, ref _tasksWidth);
+        Collapse(EditorGrid.RowDefinitions[ConsoleRow], EditorGrid.RowDefinitions[ConsoleSplitterRow], _viewModel.IsConsolePanelShown, ref _consoleHeight);
+    }
+
+    private static void Collapse(ColumnDefinition panel, ColumnDefinition splitter, bool shown, ref GridLength width)
+    {
+        if (shown)
+        {
+            panel.Width = width;
+            splitter.Width = SplitterThickness;
+
+            return;
+        }
+
+        if (panel.Width.Value > 0)
+        {
+            width = panel.Width;
+        }
+
+        panel.Width = Collapsed;
+        splitter.Width = Collapsed;
+    }
+
+    private static void Collapse(RowDefinition panel, RowDefinition splitter, bool shown, ref GridLength height)
+    {
+        if (shown)
+        {
+            panel.Height = height;
+            splitter.Height = SplitterThickness;
+
+            return;
+        }
+
+        if (panel.Height.Value > 0)
+        {
+            height = panel.Height;
+        }
+
+        panel.Height = Collapsed;
+        splitter.Height = Collapsed;
+    }
+
+    private const int FilesColumn = 0;
+    private const int FilesSplitterColumn = 1;
+    private const int TasksSplitterColumn = 3;
+    private const int TasksColumn = 4;
+    private const int ConsoleSplitterRow = 2;
+    private const int ConsoleRow = 3;
+
+    private static readonly GridLength Collapsed = new(0);
+
+    private static readonly GridLength SplitterThickness = new(4);
 
     private void ApplyGrammar()
     {

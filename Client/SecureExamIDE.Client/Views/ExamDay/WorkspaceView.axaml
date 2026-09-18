@@ -7,6 +7,9 @@
 
   <UserControl.KeyBindings>
     <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveCommand}" />
+    <KeyBinding Gesture="Ctrl+B" Command="{Binding ToggleFilesPanelCommand}" />
+    <KeyBinding Gesture="Ctrl+T" Command="{Binding ToggleTasksPanelCommand}" />
+    <KeyBinding Gesture="Ctrl+J" Command="{Binding ToggleConsolePanelCommand}" />
   </UserControl.KeyBindings>
 
   <UserControl.Styles>
@@ -43,21 +46,38 @@
         <Grid ColumnDefinitions="*,Auto,Auto">
           <StackPanel Spacing="2">
             <TextBlock Classes="itemTitle" Text="{Binding ExamTitle}" />
-            <TextBlock Classes="info" Text="{Binding Details}" />
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <TextBlock Classes="info" Text="{Binding Details}" />
+              <TextBlock Text="{Binding TimeLeft}" FontWeight="SemiBold" />
+              <TextBlock Classes="error" Text="{Binding TimeLeft}" IsVisible="{Binding IsEndingSoon}" />
+            </StackPanel>
           </StackPanel>
-          <TextBlock Grid.Column="1" Classes="error" VerticalAlignment="Center" Margin="0,0,16,0"
-                     Text="{Binding LeftWindowNote}" IsVisible="{Binding HasLeftWindow}" />
-          <Button Grid.Column="2" Classes="accent" Content="Finish exam" VerticalAlignment="Center"
-                  Command="{Binding AskToFinishCommand}" />
+          <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0" Spacing="2">
+            <TextBlock Classes="error" HorizontalAlignment="Right"
+                       Text="{Binding LeftWindowNote}" IsVisible="{Binding HasLeftWindow}" />
+            <TextBlock Classes="info" FontSize="11" HorizontalAlignment="Right"
+                       Text="{Binding EmergencyExitNote}" IsVisible="{Binding IsEmergencyExitShown}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <!-- Each panel can be put away, so the editor or the console can have the whole window. -->
+            <ToggleButton Classes="small" Content="Files" ToolTip.Tip="Ctrl+B"
+                          IsChecked="{Binding IsFilesPanelShown}" />
+            <ToggleButton Classes="small" Content="Tasks" ToolTip.Tip="Ctrl+T"
+                          IsChecked="{Binding IsTasksPanelShown}" />
+            <ToggleButton Classes="small" Content="Console" ToolTip.Tip="Ctrl+J"
+                          IsChecked="{Binding IsConsolePanelShown}" />
+            <Button Classes="accent" Content="Finish exam" Command="{Binding AskToFinishCommand}" />
+          </StackPanel>
         </Grid>
       </Border>
 
       <TextBlock DockPanel.Dock="Top" Classes="error" Margin="16,8" Text="{Binding ErrorMessage}"
                  IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 
-      <Grid ColumnDefinitions="220,4,*,4,360">
+      <Grid x:Name="PanelGrid" ColumnDefinitions="220,4,*,4,360">
+
         <!-- Files -->
-        <Border Classes="panel" BorderThickness="0,0,1,0">
+        <Border Classes="panel" BorderThickness="0,0,1,0" IsVisible="{Binding IsFilesPanelShown}">
           <DockPanel>
             <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="12,8">
               <TextBlock Classes="panelTitle" Text="Files" />
@@ -103,10 +123,11 @@
           </DockPanel>
         </Border>
 
-        <GridSplitter Grid.Column="1" ResizeDirection="Columns" Background="Transparent" />
+        <GridSplitter Grid.Column="1" ResizeDirection="Columns" Background="Transparent"
+                      IsVisible="{Binding IsFilesPanelShown}" />
 
         <!-- Editor with tabs, and the output panel underneath -->
-        <Grid Grid.Column="2" RowDefinitions="Auto,*,4,160">
+        <Grid x:Name="EditorGrid" Grid.Column="2" RowDefinitions="Auto,*,4,160">
           <Border Classes="panel" BorderThickness="0,0,0,1">
             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
               <ItemsControl ItemsSource="{Binding OpenFiles}">
@@ -149,21 +170,45 @@
           <TextBlock Grid.Row="1" Classes="info" HorizontalAlignment="Center" VerticalAlignment="Center"
                      Text="Open a file on the left, or create one." IsVisible="{Binding HasNoActiveFile}" />
 
-          <GridSplitter Grid.Row="2" ResizeDirection="Rows" Background="Transparent" />
+          <GridSplitter Grid.Row="2" ResizeDirection="Rows" Background="Transparent"
+                        IsVisible="{Binding IsConsolePanelShown}" />
 
-          <Border Grid.Row="3" Classes="panel" BorderThickness="0,1,0,0">
+          <Border Grid.Row="3" Classes="panel" BorderThickness="0,1,0,0" IsVisible="{Binding IsConsolePanelShown}">
             <DockPanel>
-              <TextBlock DockPanel.Dock="Top" Classes="panelTitle" Margin="12,8" Text="Output" />
-              <TextBlock Classes="info" Margin="12,0" FontSize="12"
-                         Text="Compiling and running programs comes with the toolchains, in the next part of this step." />
+              <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" Margin="12,6">
+                <TextBlock Classes="panelTitle" Text="Console" />
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+                  <Button Classes="small" Content="Clear" Command="{Binding ClearConsoleCommand}" />
+                  <Button Classes="small" Content="Stop" Command="{Binding StopCommand}" />
+                  <Button Classes="small accent" Content="Run" Command="{Binding RunCommand}" />
+                </StackPanel>
+              </Grid>
+
+              <!-- Typed while the program runs: what goes in here reaches its standard input. -->
+              <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto" Margin="8,4,8,8">
+                <TextBox Text="{Binding InputText}" IsEnabled="{Binding IsRunning}" FontSize="12"
+                         PlaceholderText="Type here and press Enter to answer the program">
+                  <TextBox.KeyBindings>
+                    <KeyBinding Gesture="Enter" Command="{Binding SendInputCommand}" />
+                  </TextBox.KeyBindings>
+                </TextBox>
+                <Button Grid.Column="1" Classes="small" Content="Send" Margin="6,0,0,0"
+                        Command="{Binding SendInputCommand}" />
+              </Grid>
+
+              <TextBox IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" BorderThickness="0"
+                       FontFamily="Cascadia Mono, Consolas, DejaVu Sans Mono, Menlo, monospace" FontSize="12"
+                       Text="{Binding ConsoleText}" CaretIndex="{Binding ConsoleCaret, Mode=OneWay}"
+                       VerticalContentAlignment="Top" />
             </DockPanel>
           </Border>
         </Grid>
 
-        <GridSplitter Grid.Column="3" ResizeDirection="Columns" Background="Transparent" />
+        <GridSplitter Grid.Column="3" ResizeDirection="Columns" Background="Transparent"
+                      IsVisible="{Binding IsTasksPanelShown}" />
 
         <!-- Tasks -->
-        <Border Grid.Column="4" Classes="panel" BorderThickness="1,0,0,0">
+        <Border Grid.Column="4" Classes="panel" BorderThickness="1,0,0,0" IsVisible="{Binding IsTasksPanelShown}">
           <DockPanel>
             <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*" Margin="12,8">
               <TextBlock Classes="panelTitle" Text="Tasks" Margin="0,0,12,0" />
@@ -180,8 +225,28 @@
               <TextBox IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" BorderThickness="0"
                        FontFamily="Cascadia Mono, Consolas, DejaVu Sans Mono, Menlo, monospace"
                        Text="{Binding SelectedTaskText}" IsVisible="{Binding IsSelectedTaskTextShown}" />
+
+              <TextBlock Classes="info" Margin="12" Text="Drawing the task sheet."
+                         IsVisible="{Binding IsDrawingTask}" />
+
+              <!-- A PDF task, drawn from memory: the decrypted file never reaches the disk. -->
+              <ScrollViewer IsVisible="{Binding IsSelectedTaskPdf}">
+                <ItemsControl ItemsSource="{Binding TaskPages}" Margin="8">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Spacing="8" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Image Source="{Binding}" Stretch="Uniform" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+
               <TextBlock Classes="info" Margin="12" IsVisible="{Binding IsSelectedTaskBinary}"
-                         Text="This task file cannot be shown yet. PDF tasks will be shown here in a later part of this step." />
+                         Text="This task file cannot be shown in the application." />
             </Panel>
           </DockPanel>
         </Border>

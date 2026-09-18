@@ -35,6 +35,7 @@ public sealed record ExamDependency(
     Guid Id,
     string Name,
     string Version,
+    DependencyPlatform Platform,
     string ContentType,
     long SizeBytes);
 
@@ -42,7 +43,22 @@ public sealed record DependencyDownload(
     Guid DependencyId,
     string Name,
     string Version,
+    DependencyPlatform Platform,
     string ContentType,
     long SizeBytes,
     Uri DownloadUrl,
     DateTimeOffset ExpiresAt);
+
+// Phase one of handing in: the server's own measurement of the bytes it received.
+public sealed record UploadedSubmissionContent(UploadedPart Solution, UploadedPart ActivityLog);
+
+public sealed record UploadedPart(string ObjectKey, long SizeBytes, string Sha256);
+
+// Phase two: the submission the server recorded. One per student per sitting, ever.
+public sealed record SubmissionReceipt(
+    Guid SubmissionId,
+    DateTimeOffset SubmittedAt,
+    long SolutionSizeBytes,
+    string SolutionSha256,
+    long ActivityLogSizeBytes,
+    string ActivityLogSha256);

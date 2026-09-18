@@ -11,5 +11,6 @@ public interface IExamCatalog
     // Every sitting of the exam, all pages gathered: an exam has a handful, never hundreds.
     Task<ApiResult<IReadOnlyList<ExamSitting>>> GetSittingsAsync(Guid examId, CancellationToken cancellationToken = default);
 
+    // Only the toolchains this computer can run: its own platform's, plus those marked Any.
     Task<ApiResult<IReadOnlyList<ExamDependency>>> GetDependenciesAsync(Guid examId, CancellationToken cancellationToken = default);
 }

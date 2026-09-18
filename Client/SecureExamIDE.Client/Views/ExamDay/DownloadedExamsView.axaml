@@ -19,6 +19,8 @@
       <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoading}" />
       <TextBlock Classes="info" IsVisible="{Binding IsEmpty}"
                  Text="Nothing has been downloaded yet. Download a sitting from the catalog while you are online." />
+      <TextBlock Classes="info" Text="{Binding StatusMessage}"
+                 IsVisible="{Binding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
     </StackPanel>
 
     <ScrollViewer>
@@ -45,10 +47,19 @@
                     <Run Text=" · " />
                     <Run Text="{Binding Status}" />
                   </TextBlock>
+                  <TextBlock Classes="info" Text="{Binding SubmissionStatus}" IsVisible="{Binding IsSealed}" />
                 </StackPanel>
-                <Button Grid.Column="1" VerticalAlignment="Center" Classes="accent" Content="Enter code"
-                        Command="{Binding $parent[ItemsControl].((vm:DownloadedExamsViewModel)DataContext).OpenCommand}"
-                        CommandParameter="{Binding}" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                  <Border Classes="badge" IsVisible="{Binding IsHandedIn}">
+                    <TextBlock Text="Handed in" />
+                  </Border>
+                  <Button Content="Hand in now" IsVisible="{Binding IsWaitingToHandIn}"
+                          Command="{Binding $parent[ItemsControl].((vm:DownloadedExamsViewModel)DataContext).HandInCommand}"
+                          CommandParameter="{Binding}" />
+                  <Button Classes="accent" Content="Enter code" IsVisible="{Binding CanEnter}"
+                          Command="{Binding $parent[ItemsControl].((vm:DownloadedExamsViewModel)DataContext).OpenCommand}"
+                          CommandParameter="{Binding}" />
+                </StackPanel>
               </Grid>
             </Border>
           </DataTemplate>

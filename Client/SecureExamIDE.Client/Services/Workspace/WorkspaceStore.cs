@@ -9,6 +9,9 @@ internal sealed class WorkspaceStore(ILocalExamLibrary library) : IWorkspaceStor
     public IWorkspaceFiles Open(Guid examId, Guid sittingId, byte[] key) =>
         new WorkspaceFiles(FilesDirectory(examId, sittingId), sittingId, key);
 
+    public string BuildDirectory(Guid examId, Guid sittingId) =>
+        Path.Combine(WorkspaceDirectory(examId, sittingId), "build");
+
     public bool IsFinished(Guid examId, Guid sittingId) =>
         File.Exists(FinishedPath(examId, sittingId));
 

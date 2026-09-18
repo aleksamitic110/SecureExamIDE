@@ -2,14 +2,19 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using SecureExamIDE.Client.Configuration;
+using SecureExamIDE.Client.Services.ActivityLog;
 using SecureExamIDE.Client.Services.Api;
 using SecureExamIDE.Client.Services.Credentials;
 using SecureExamIDE.Client.Services.Downloads;
 using SecureExamIDE.Client.Services.Exams;
 using SecureExamIDE.Client.Services.Lockdown;
 using SecureExamIDE.Client.Services.Navigation;
+using SecureExamIDE.Client.Services.Pdf;
+using SecureExamIDE.Client.Services.Run;
 using SecureExamIDE.Client.Services.Session;
 using SecureExamIDE.Client.Services.Storage;
+using SecureExamIDE.Client.Services.Submission;
+using SecureExamIDE.Client.Services.Toolchains;
 using SecureExamIDE.Client.Services.Unlock;
 using SecureExamIDE.Client.Services.Workspace;
 using SecureExamIDE.Client.ViewModels;
@@ -34,6 +39,12 @@ internal static class ClientServices
         var services = new ServiceCollection();
 
         services.Configure<ApiOptions>(configuration.GetSection("Api"));
+        services.Configure<LockdownOptions>(configuration.GetSection("Lockdown"));
+#if DEBUG
+        // A development build always has the escape hatch and can reopen a finished sitting, whatever
+        // configuration says. A Release build takes it from configuration only.
+        services.PostConfigure<LockdownOptions>(options => options.AllowEmergencyExit = true);
+#endif
 
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IMachineIdentity, MachineIdentity>();
@@ -41,6 +52,7 @@ internal static class ClientServices
         services.AddSingleton(provider => CreateHttpClient(provider.GetRequiredService<IOptions<ApiOptions>>().Value));
         services.AddSingleton<IApiClient, ApiClient>();
         services.AddSingleton<IProfileCache>(_ => new ProfileCache(ClientPaths.DataDirectory));
+        services.AddSingleton<IUiPreferences>(_ => new UiPreferences(ClientPaths.DataDirectory));
         services.AddSingleton<ISessionService, SessionService>();
 
         services.AddSingleton<ILocalExamLibrary>(_ => new LocalExamLibrary(ClientPaths.DataDirectory));
@@ -49,6 +61,11 @@ internal static class ClientServices
         services.AddSingleton<IExamDownloadService, ExamDownloadService>();
         services.AddSingleton<IPackageUnlocker, PackageUnlocker>();
         services.AddSingleton<IWorkspaceStore, WorkspaceStore>();
+        services.AddSingleton<IActivityLogStore, ActivityLogStore>();
+        services.AddSingleton<ISubmissionService, SubmissionService>();
+        services.AddSingleton<IToolchainService, ToolchainService>();
+        services.AddSingleton<IProgramRunner, ProgramRunner>();
+        services.AddSingleton<IPdfRenderer, PdfRenderer>();
         services.AddSingleton<WindowExamLockdown>();
         services.AddSingleton<IExamLockdown>(provider => provider.GetRequiredService<WindowExamLockdown>());
 

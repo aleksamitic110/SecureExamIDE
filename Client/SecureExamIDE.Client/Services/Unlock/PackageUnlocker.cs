@@ -90,7 +90,7 @@ internal sealed class PackageUnlocker(IMachineIdentity machineIdentity) : IPacka
 #pragma warning disable CA2000 // Ownership passes to the caller, which disposes it when the exam is locked again.
             return files is null
                 ? ApiResult.Failure<UnlockedExam>(UnlockErrors.Damaged)
-                : ApiResult.Success(new UnlockedExam(files, DeriveWorkspaceKey(contentKey)));
+                : ApiResult.Success(new UnlockedExam(files, DeriveWorkspaceKey(contentKey), DeriveHandInKey(contentKey)));
 #pragma warning restore CA2000
         }
         finally
@@ -109,6 +109,15 @@ internal sealed class PackageUnlocker(IMachineIdentity machineIdentity) : IPacka
         KeySizeBytes,
         salt: Encoding.UTF8.GetBytes(machineIdentity.GetMachineId()),
         info: WorkspaceKeyInfo);
+
+    // No machine id here, on purpose: the professor derives this same key from the one-time code and
+    // the package header, and that is what lets them open what a student handed in.
+    private static byte[] DeriveHandInKey(byte[] contentKey) => HKDF.DeriveKey(
+        HashAlgorithmName.SHA256,
+        contentKey,
+        KeySizeBytes,
+        salt: null,
+        info: HandInKeyInfo);
 
     private static PackageHeader? ReadHeader(string headerPath)
     {
@@ -219,6 +228,8 @@ internal sealed class PackageUnlocker(IMachineIdentity machineIdentity) : IPacka
     }
 
     private static readonly byte[] WorkspaceKeyInfo = "SecureExamIDE workspace key v1"u8.ToArray();
+
+    private static readonly byte[] HandInKeyInfo = "SecureExamIDE hand-in key v1"u8.ToArray();
 
     private const int SupportedVersion = 1;
     private const int KeySizeBytes = 32;

@@ -21,6 +21,8 @@ internal sealed class LocalExamLibrary(string dataDirectory) : ILocalExamLibrary
     public string DependencyPath(Guid examId, string fileName) =>
         Path.Combine(ExamDirectory(examId), "dependencies", Path.GetFileName(fileName));
 
+    public string ToolsDirectory(Guid examId) => Path.Combine(ExamDirectory(examId), "tools");
+
     public async Task<DownloadedExam?> LoadAsync(Guid examId, CancellationToken cancellationToken = default)
     {
         string path = ManifestPath(examId);

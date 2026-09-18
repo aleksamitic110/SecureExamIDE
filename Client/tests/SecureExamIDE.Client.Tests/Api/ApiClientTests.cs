@@ -179,6 +179,34 @@ public sealed class ApiClientTests : IDisposable
         request.Authorization.ShouldBe("Bearer token-value");
     }
 
+    // A client asks only for what it can run: its own platform's toolchains plus the ones marked Any.
+    [Fact]
+    public async Task Dependencies_Should_AskForThisComputersPlatform()
+    {
+        // Arrange
+        var dependencyId = Guid.NewGuid();
+        var examId = Guid.NewGuid();
+        _handler.Respond(
+            HttpStatusCode.OK,
+            $$"""
+            {"items":[{"id":"{{dependencyId}}","name":"GCC (MinGW-w64)","version":"14.2.0","platform":"WindowsX64",
+              "contentType":"application/zip","sizeBytes":2098368}],
+             "page":1,"pageSize":100,"totalCount":1,"hasNextPage":false,"hasPreviousPage":false}
+            """);
+
+        // Act
+        ApiResult<PagedList<ExamDependency>> result = await _client.GetExamDependenciesAsync(
+            examId, 1, 100, DependencyPlatform.WindowsX64, "token-value");
+
+        // Assert
+        ExamDependency dependency = result.Value.Items.ShouldHaveSingleItem();
+        dependency.Platform.ShouldBe(DependencyPlatform.WindowsX64);
+
+        StubHttpMessageHandler.RecordedRequest request = _handler.Requests.ShouldHaveSingleItem();
+        request.Path.ShouldBe($"/exams/{examId}/dependencies");
+        request.Query.ShouldBe("?page=1&pageSize=100&platform=WindowsX64");
+    }
+
     [Fact]
     public async Task SittingPackage_Should_ReadTheStorageLinks()
     {

@@ -8,10 +8,16 @@ public sealed class ExamTaskItem(ExamTaskFile file)
 {
     public string Name => file.Name;
 
+    public bool IsPdf => Path.GetExtension(file.Name).Equals(".pdf", StringComparison.OrdinalIgnoreCase);
+
+    // The decrypted bytes, handed to the PDF renderer. They stay in memory and are wiped with the
+    // rest of the unlocked exam.
+    public byte[] Content => file.Content;
+
     public string Size => ByteSize.Format(file.Content.LongLength);
 
-    // Plain text and Markdown are shown as they are. Anything else - a PDF above all - waits for the
-    // workspace, which will display it without writing the decrypted file to disk.
+    // Plain text and Markdown are shown as they are; a PDF is drawn by the PDF renderer, also from
+    // memory. Anything else is named but not shown.
     public string? Text => IsText(file) ? DecodeUtf8(file.Content) : null;
 
     private static bool IsText(ExamTaskFile task)

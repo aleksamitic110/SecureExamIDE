@@ -1,16 +1,23 @@
 using System.Globalization;
+using CommunityToolkit.Mvvm.ComponentModel;
 using SecureExamIDE.Client.Formatting;
 using SecureExamIDE.Client.Services.Exams;
+using SecureExamIDE.Client.Services.Submission;
 
 namespace SecureExamIDE.Client.ViewModels.ExamDay;
 
 // A downloaded sitting as the exam-day screens show it, worked out from the local record alone.
-public sealed class LocalSittingItem
+public sealed partial class LocalSittingItem : ObservableObject
 {
-    public LocalSittingItem(DownloadedExam exam, DownloadedSitting sitting, TimeProvider timeProvider)
+    public LocalSittingItem(
+        DownloadedExam exam,
+        DownloadedSitting sitting,
+        TimeProvider timeProvider,
+        SealedSubmission? submission = null)
     {
         Exam = exam;
         Sitting = sitting;
+        _submission = submission;
 
         DateTimeOffset now = timeProvider.GetUtcNow();
 
@@ -42,6 +49,26 @@ public sealed class LocalSittingItem
     public bool IsInProgress { get; }
 
     public string PackageSize => ByteSize.Format(Sitting.PackageSizeBytes);
+
+    // What became of the work: sealed on this computer, and then handed in when a connection allowed.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsSealed), nameof(IsHandedIn), nameof(IsWaitingToHandIn), nameof(SubmissionStatus), nameof(CanEnter))]
+    private SealedSubmission? _submission;
+
+    public bool IsSealed => Submission is not null;
+
+    public bool IsHandedIn => Submission?.IsHandedIn == true;
+
+    public bool IsWaitingToHandIn => IsSealed && !IsHandedIn;
+
+    public bool CanEnter => !IsSealed;
+
+    public string SubmissionStatus => Submission switch
+    {
+        null => string.Empty,
+        { HandedInAt: { } handedIn } => $"Handed in {handedIn.ToLocalTime():ddd d MMM, HH:mm}",
+        _ => "Sealed on this computer, waiting to be handed in"
+    };
 }
 
 public static class SittingTimes

@@ -65,14 +65,21 @@ internal sealed class ApiClient(HttpClient httpClient) : IApiClient
         CancellationToken cancellationToken = default) =>
         SendForValueAsync<SittingPackage>(HttpMethod.Get, $"sessions/{sittingId}/package", null, accessToken, cancellationToken);
 
+    // The platform filter is what keeps a Windows laptop from downloading the Linux compiler: the
+    // API answers with that platform's toolchains plus the ones that run anywhere.
     public Task<ApiResult<PagedList<ExamDependency>>> GetExamDependenciesAsync(
         Guid examId,
         int page,
         int pageSize,
+        DependencyPlatform? platform,
         string accessToken,
         CancellationToken cancellationToken = default) =>
         SendForValueAsync<PagedList<ExamDependency>>(
-            HttpMethod.Get, PagedPath($"exams/{examId}/dependencies", page, pageSize), null, accessToken, cancellationToken);
+            HttpMethod.Get,
+            PagedPath($"exams/{examId}/dependencies", page, pageSize) + (platform is null ? string.Empty : $"&platform={platform}"),
+            null,
+            accessToken,
+            cancellationToken);
 
     public Task<ApiResult<DependencyDownload>> GetDependencyDownloadAsync(
         Guid dependencyId,
@@ -80,6 +87,64 @@ internal sealed class ApiClient(HttpClient httpClient) : IApiClient
         CancellationToken cancellationToken = default) =>
         SendForValueAsync<DependencyDownload>(
             HttpMethod.Get, $"dependencies/{dependencyId}/download", null, accessToken, cancellationToken);
+
+    // The solution and its log go together in one request: the server refuses either on its own, and
+    // it measures both digests from the bytes it receives.
+    public async Task<ApiResult<UploadedSubmissionContent>> UploadSubmissionContentAsync(
+        Guid sittingId,
+        byte[] solution,
+        byte[] activityLog,
+        string accessToken,
+        CancellationToken cancellationToken = default)
+    {
+        using var form = new MultipartFormDataContent();
+        using var solutionContent = new ByteArrayContent(solution);
+        using var activityLogContent = new ByteArrayContent(activityLog);
+
+        solutionContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        activityLogContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+
+        form.Add(solutionContent, "solution", "solution.bin");
+        form.Add(activityLogContent, "activityLog", "activity.log");
+
+        (HttpResponseMessage? response, ApiError? error) = await ExchangeContentAsync(
+            HttpMethod.Post, $"sessions/{sittingId}/submissions/content", form, accessToken, cancellationToken);
+
+        if (error is not null)
+        {
+            return ApiResult.Failure<UploadedSubmissionContent>(error);
+        }
+
+        using (response)
+        {
+            try
+            {
+                UploadedSubmissionContent? uploaded =
+                    await response!.Content.ReadFromJsonAsync<UploadedSubmissionContent>(JsonOptions, cancellationToken);
+
+                return uploaded is null
+                    ? ApiResult.Failure<UploadedSubmissionContent>(UnexpectedResponse(response.StatusCode))
+                    : ApiResult.Success(uploaded);
+            }
+            catch (JsonException)
+            {
+                return ApiResult.Failure<UploadedSubmissionContent>(UnexpectedResponse(response!.StatusCode));
+            }
+        }
+    }
+
+    public Task<ApiResult<SubmissionReceipt>> CreateSubmissionAsync(
+        Guid sittingId,
+        string solutionObjectKey,
+        string activityLogObjectKey,
+        string accessToken,
+        CancellationToken cancellationToken = default) =>
+        SendForValueAsync<SubmissionReceipt>(
+            HttpMethod.Post,
+            $"sessions/{sittingId}/submissions",
+            new { solutionObjectKey, activityLogObjectKey },
+            accessToken,
+            cancellationToken);
 
     private static string PagedPath(string path, int page, int pageSize) =>
         string.Create(CultureInfo.InvariantCulture, $"{path}?page={page}&pageSize={pageSize}");
@@ -138,6 +203,20 @@ internal sealed class ApiClient(HttpClient httpClient) : IApiClient
         string? accessToken,
         CancellationToken cancellationToken)
     {
+        using HttpContent? content = body is null ? null : JsonContent.Create(body, body.GetType(), options: JsonOptions);
+
+        return await ExchangeContentAsync(method, path, content, accessToken, cancellationToken);
+    }
+
+    // The same exchange for a request whose body is not JSON: handing in sends the sealed solution and
+    // its log as a form, because that is what the API's two-file endpoint takes.
+    private async Task<(HttpResponseMessage? Response, ApiError? Error)> ExchangeContentAsync(
+        HttpMethod method,
+        string path,
+        HttpContent? content,
+        string? accessToken,
+        CancellationToken cancellationToken)
+    {
         if (httpClient.BaseAddress is null)
         {
             return (null, ApiError.Unreachable(
@@ -146,10 +225,7 @@ internal sealed class ApiClient(HttpClient httpClient) : IApiClient
 
         using var request = new HttpRequestMessage(method, new Uri(path, UriKind.Relative));
 
-        if (body is not null)
-        {
-            request.Content = JsonContent.Create(body, body.GetType(), options: JsonOptions);
-        }
+        request.Content = content;
 
         if (accessToken is not null)
         {

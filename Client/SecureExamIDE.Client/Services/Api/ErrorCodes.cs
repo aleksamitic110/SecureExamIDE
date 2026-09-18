@@ -12,4 +12,7 @@ public static class ErrorCodes
 
     // The professor cancelled the sitting after the student saw it listed.
     public const string SittingCancelled = "ExamSessions.Cancelled";
+
+    // The server takes one submission per student per sitting, ever.
+    public const string AlreadySubmitted = "Submissions.AlreadySubmitted";
 }

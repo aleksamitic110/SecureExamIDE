@@ -1,9 +1,11 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using SecureExamIDE.Client.Services.Api;
 using SecureExamIDE.Client.Services.Exams;
 using SecureExamIDE.Client.Services.Navigation;
 using SecureExamIDE.Client.Services.Session;
+using SecureExamIDE.Client.Services.Submission;
 using SecureExamIDE.Client.ViewModels.Account;
 using SecureExamIDE.Client.ViewModels.Home;
 
@@ -15,11 +17,15 @@ public sealed partial class DownloadedExamsViewModel(
     ISessionService session,
     INavigationService navigation,
     ILocalExamLibrary library,
+    ISubmissionService submissions,
     TimeProvider timeProvider) : SignedInViewModelBase(session, navigation), ILoadablePage
 {
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEmpty))]
     private bool _isLoading;
+
+    [ObservableProperty]
+    private string? _statusMessage;
 
     public ObservableCollection<LocalSittingItem> Sittings { get; } = [];
 
@@ -41,7 +47,8 @@ public sealed partial class DownloadedExamsViewModel(
             Sittings.Clear();
 
             IEnumerable<LocalSittingItem> items = exams
-                .SelectMany(exam => exam.Sittings.Select(sitting => new LocalSittingItem(exam, sitting, timeProvider)))
+                .SelectMany(exam => exam.Sittings.Select(sitting => new LocalSittingItem(
+                    exam, sitting, timeProvider, submissions.Find(exam.ExamId, sitting.SittingId))))
                 .OrderByDescending(item => item.IsInProgress)
                 .ThenBy(item => item.Status == "Ended")
                 .ThenBy(item => item.Sitting.StartsAt);
@@ -56,6 +63,44 @@ public sealed partial class DownloadedExamsViewModel(
             IsLoading = false;
             OnPropertyChanged(nameof(IsEmpty));
         }
+
+        // Sealed work is handed in as soon as there is a connection, which may be hours after the exam.
+        if (!Session.IsOffline)
+        {
+            await HandInWaitingWorkAsync();
+        }
+    }
+
+    private async Task HandInWaitingWorkAsync()
+    {
+        foreach (LocalSittingItem item in Sittings.Where(item => item.IsWaitingToHandIn).ToList())
+        {
+            await HandInAsync(item);
+        }
+    }
+
+    // Also on the button, for a student who wants to see it happen.
+    [RelayCommand]
+    private async Task HandInAsync(LocalSittingItem item)
+    {
+        if (item.Submission is not { IsHandedIn: false } submission)
+        {
+            return;
+        }
+
+        ApiResult<SealedSubmission> result = await submissions.HandInAsync(submission);
+
+        if (result.IsSuccess)
+        {
+            item.Submission = result.Value;
+            StatusMessage = $"{item.ExamTitle}: handed in.";
+
+            return;
+        }
+
+        StatusMessage = result.Error.Code == ErrorCodes.AlreadySubmitted
+            ? $"{item.ExamTitle}: this sitting was already handed in from this account."
+            : $"{item.ExamTitle}: not handed in yet - {result.Error.Message}";
     }
 
     [RelayCommand]

@@ -8,6 +8,7 @@ namespace SecureExamIDE.Client.Services.Exams;
 //   exams/{examId}/sittings/{sittingId}/package.hdr
 //   exams/{examId}/sittings/{sittingId}/workspace/     the student's own work (IWorkspaceStore)
 //   exams/{examId}/dependencies/{dependencyId}{extension}
+//   exams/{examId}/tools/{dependencyId}/                  the unpacked toolchain
 public interface ILocalExamLibrary
 {
     string SittingDirectory(Guid examId, Guid sittingId);
@@ -19,6 +20,9 @@ public interface ILocalExamLibrary
     string DependencyFileName(Guid dependencyId, string contentType);
 
     string DependencyPath(Guid examId, string fileName);
+
+    // Where the downloaded archives are unpacked, one folder per dependency.
+    string ToolsDirectory(Guid examId);
 
     Task<DownloadedExam?> LoadAsync(Guid examId, CancellationToken cancellationToken = default);
 

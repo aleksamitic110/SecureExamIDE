@@ -2,6 +2,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SecureExamIDE.Client.Services.Api;
 using SecureExamIDE.Client.Services.Exams;
+using Microsoft.Extensions.Options;
+using SecureExamIDE.Client.Services.Lockdown;
 using SecureExamIDE.Client.Services.Navigation;
 using SecureExamIDE.Client.Services.Unlock;
 using SecureExamIDE.Client.Services.Workspace;
@@ -12,12 +14,15 @@ namespace SecureExamIDE.Client.ViewModels.ExamDay;
 // with it, on this computer, with no network. The code is the lock; the clock is only shown, never
 // enforced, so a laptop with a wrong clock cannot shut a student out of their own exam.
 //
-// A sitting the student has finished stays closed: the code no longer opens it from here.
+// A sitting the student has finished stays closed: the code no longer opens it from here. A testing
+// build - the same switch that provides the emergency exit - opens it again, and says so, because
+// otherwise every test of the exam costs a fresh sitting.
 public sealed partial class UnlockSittingViewModel(
     INavigationService navigation,
     IPackageUnlocker unlocker,
     ILocalExamLibrary library,
     IWorkspaceStore workspace,
+    IOptions<LockdownOptions> lockdownOptions,
     TimeProvider timeProvider) : ViewModelBase
 {
     private DownloadedExam? _exam;
@@ -47,7 +52,9 @@ public sealed partial class UnlockSittingViewModel(
     [NotifyPropertyChangedFor(nameof(CanEnterCode))]
     private bool _isFinished;
 
-    public bool CanEnterCode => !IsFinished;
+    public bool CanEnterCode => !IsFinished || IsTestingBuild;
+
+    private bool IsTestingBuild => lockdownOptions.Value.AllowEmergencyExit;
 
     public void Initialize(DownloadedExam exam, DownloadedSitting sitting)
     {
@@ -58,18 +65,23 @@ public sealed partial class UnlockSittingViewModel(
         ExamTitle = exam.Title;
         Details = $"{item.Subject} · {item.When}";
         IsFinished = workspace.IsFinished(exam.ExamId, sitting.SittingId);
-        Status = IsFinished ? "You have finished this sitting. It cannot be opened again." : item.Status switch
+        Status = IsFinished switch
         {
-            "Upcoming" => "This sitting has not started yet. The professor gives out the code when it starts.",
-            "Ended" => "This sitting has ended.",
-            _ => "Enter the code the professor gave out for this sitting."
+            true when IsTestingBuild => "You finished this sitting. Testing build: the code opens it again anyway.",
+            true => "You have finished this sitting. It cannot be opened again.",
+            _ => item.Status switch
+            {
+                "Upcoming" => "This sitting has not started yet. The professor gives out the code when it starts.",
+                "Ended" => "This sitting has ended.",
+                _ => "Enter the code the professor gave out for this sitting."
+            }
         };
     }
 
     [RelayCommand(CanExecute = nameof(CanUnlock))]
     private async Task UnlockAsync()
     {
-        if (_exam is null || _sitting is null || IsFinished)
+        if (_exam is null || _sitting is null || !CanEnterCode)
         {
             return;
         }
@@ -103,7 +115,7 @@ public sealed partial class UnlockSittingViewModel(
         }
     }
 
-    private bool CanUnlock() => !IsUnlocking && !IsFinished;
+    private bool CanUnlock() => !IsUnlocking && CanEnterCode;
 
     [RelayCommand]
     private void Back() => navigation.NavigateTo<DownloadedExamsViewModel>();

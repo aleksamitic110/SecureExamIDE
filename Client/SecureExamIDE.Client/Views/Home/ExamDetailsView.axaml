@@ -60,6 +60,9 @@
                     <Button Classes="accent" Content="Download" IsVisible="{Binding CanDownload}"
                             Command="{Binding $parent[ItemsControl].((vm:ExamDetailsViewModel)DataContext).DownloadCommand}"
                             CommandParameter="{Binding}" />
+                    <Button Classes="accent" Content="Enter code" IsVisible="{Binding CanEnter}"
+                            Command="{Binding $parent[ItemsControl].((vm:ExamDetailsViewModel)DataContext).EnterCommand}"
+                            CommandParameter="{Binding}" />
                   </StackPanel>
                 </Grid>
               </Border>

@@ -3,6 +3,7 @@ using SecureExamIDE.Client.Services.Api;
 using SecureExamIDE.Client.Services.Exams;
 using SecureExamIDE.Client.Services.Navigation;
 using SecureExamIDE.Client.Services.Session;
+using SecureExamIDE.Client.ViewModels.ExamDay;
 using SecureExamIDE.Client.ViewModels.Home;
 
 namespace SecureExamIDE.Client.Tests.ViewModels;
@@ -29,13 +30,58 @@ public sealed class ExamDetailsViewModelTests
         _time.SetLocalTimeZone(TimeZoneInfo.Utc);
         _catalog.GetSittingsAsync(Exam.Id, Arg.Any<CancellationToken>()).Returns(ApiResult.Success<IReadOnlyList<ExamSitting>>(sittings));
         _catalog.GetDependenciesAsync(Exam.Id, Arg.Any<CancellationToken>())
-            .Returns(ApiResult.Success<IReadOnlyList<ExamDependency>>([new ExamDependency(Guid.NewGuid(), "gcc", "13.2", "application/gzip", 4000)]));
+            .Returns(ApiResult.Success<IReadOnlyList<ExamDependency>>([new ExamDependency(Guid.NewGuid(), "gcc", "13.2", DependencyPlatform.Any, "application/gzip", 4000)]));
 
         var page = new ExamDetailsViewModel(_session, _navigation, _catalog, _downloads, _library, _time);
         page.Initialize(Exam);
         await page.LoadCommand.ExecuteAsync(null);
 
         return page;
+    }
+
+    // Aleksa asked for this: a downloaded sitting is started where the student already is, rather than
+    // through the separate list of exams on this computer.
+    [Fact]
+    public async Task Enter_Should_OpenTheCodeScreen_ForASittingOnThisComputer()
+    {
+        // Arrange
+        ExamSitting sitting = SittingAt(Now.AddMinutes(-5));
+        var downloaded = new DownloadedSitting(sitting.Id, sitting.StartsAt, sitting.EndsAt, 1000, sitting.PackageSha256, Now);
+        _library.LoadAsync(Exam.Id, Arg.Any<CancellationToken>()).Returns(new DownloadedExam(
+            Exam.Id, Exam.Title, Exam.Subject, Exam.Description, "Milena Frtunic", [downloaded], [], Now));
+
+        using ExamDetailsViewModel page = await OpenWithAsync(sitting);
+        SittingItemViewModel item = page.Sittings.ShouldHaveSingleItem();
+
+        // Act
+        await page.EnterCommand.ExecuteAsync(item);
+
+        // Assert
+        item.CanEnter.ShouldBeTrue();
+        item.CanDownload.ShouldBeFalse();
+        _navigation.Received(1).NavigateTo(Arg.Any<Action<UnlockSittingViewModel>?>());
+    }
+
+    [Fact]
+    public async Task Enter_Should_ExplainWhenTheSittingIsNoLongerOnThisComputer()
+    {
+        // Arrange - listed as downloaded, but the local record has gone since.
+        ExamSitting sitting = SittingAt(Now.AddMinutes(-5));
+        var downloaded = new DownloadedSitting(sitting.Id, sitting.StartsAt, sitting.EndsAt, 1000, sitting.PackageSha256, Now);
+        _library.LoadAsync(Exam.Id, Arg.Any<CancellationToken>()).Returns(
+            _ => new DownloadedExam(Exam.Id, Exam.Title, Exam.Subject, Exam.Description, "Milena Frtunic", [downloaded], [], Now),
+            _ => null);
+
+        using ExamDetailsViewModel page = await OpenWithAsync(sitting);
+        SittingItemViewModel item = page.Sittings.ShouldHaveSingleItem();
+
+        // Act
+        await page.EnterCommand.ExecuteAsync(item);
+
+        // Assert
+        page.ErrorMessage.ShouldBe("This sitting is no longer on this computer. Download it again.");
+        item.IsDownloaded.ShouldBeFalse();
+        _navigation.DidNotReceiveWithAnyArgs().NavigateTo<UnlockSittingViewModel>();
     }
 
     [Fact]

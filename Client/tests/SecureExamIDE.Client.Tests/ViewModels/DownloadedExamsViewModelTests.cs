@@ -2,6 +2,7 @@ using Microsoft.Extensions.Time.Testing;
 using SecureExamIDE.Client.Services.Exams;
 using SecureExamIDE.Client.Services.Navigation;
 using SecureExamIDE.Client.Services.Session;
+using SecureExamIDE.Client.Services.Submission;
 using SecureExamIDE.Client.ViewModels.ExamDay;
 
 namespace SecureExamIDE.Client.Tests.ViewModels;
@@ -13,6 +14,7 @@ public sealed class DownloadedExamsViewModelTests
     private readonly ISessionService _session = Substitute.For<ISessionService>();
     private readonly INavigationService _navigation = Substitute.For<INavigationService>();
     private readonly ILocalExamLibrary _library = Substitute.For<ILocalExamLibrary>();
+    private readonly ISubmissionService _submissions = Substitute.For<ISubmissionService>();
 
     private static DownloadedSitting SittingAt(DateTimeOffset startsAt) =>
         new(Guid.NewGuid(), startsAt, startsAt.AddHours(2), 176, new string('f', 64), Now.AddDays(-3));
@@ -28,7 +30,7 @@ public sealed class DownloadedExamsViewModelTests
             new DownloadedExam(Guid.NewGuid(), "Compilers", "", "", "", [ended, upcoming], [], Now),
             new DownloadedExam(Guid.NewGuid(), "Algorithms", "", "", "", [inProgress], [], Now)
         ]);
-        var page = new DownloadedExamsViewModel(_session, _navigation, _library, new FakeTimeProvider(Now));
+        var page = new DownloadedExamsViewModel(_session, _navigation, _library, _submissions, new FakeTimeProvider(Now));
 
         // Act
         await page.LoadCommand.ExecuteAsync(null);
@@ -46,7 +48,7 @@ public sealed class DownloadedExamsViewModelTests
         _session.IsOffline.Returns(true);
 
         // Act
-        var page = new DownloadedExamsViewModel(_session, _navigation, _library, new FakeTimeProvider(Now));
+        var page = new DownloadedExamsViewModel(_session, _navigation, _library, _submissions, new FakeTimeProvider(Now));
 
         // Assert
         page.IsOnline.ShouldBeFalse();

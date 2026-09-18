@@ -15,7 +15,7 @@ public sealed class ExamDownloadServiceTests : IDisposable
     private static readonly ExamSitting Sitting = new(
         Guid.NewGuid(), Exam.Id, DateTimeOffset.UtcNow.AddDays(2), DateTimeOffset.UtcNow.AddDays(2).AddHours(2), 1000, new string('b', 64));
 
-    private static readonly ExamDependency Gcc = new(Guid.NewGuid(), "gcc", "13.2", "application/gzip", 4000);
+    private static readonly ExamDependency Gcc = new(Guid.NewGuid(), "gcc", "13.2", DependencyPlatform.LinuxX64, "application/gzip", 4000);
 
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "secureexamide-tests-" + Guid.NewGuid().ToString("N"));
     private readonly IApiClient _api = Substitute.For<IApiClient>();
@@ -37,7 +37,7 @@ public sealed class ExamDownloadServiceTests : IDisposable
                 DateTimeOffset.UtcNow.AddHours(1), Sitting.PackageSizeBytes, Sitting.PackageSha256)));
         _api.GetDependencyDownloadAsync(Gcc.Id, "token", Arg.Any<CancellationToken>())
             .Returns(ApiResult.Success(new DependencyDownload(
-                Gcc.Id, Gcc.Name, Gcc.Version, Gcc.ContentType, Gcc.SizeBytes, new Uri("http://storage.test/gcc"), DateTimeOffset.UtcNow.AddHours(2))));
+                Gcc.Id, Gcc.Name, Gcc.Version, Gcc.Platform, Gcc.ContentType, Gcc.SizeBytes, new Uri("http://storage.test/gcc"), DateTimeOffset.UtcNow.AddHours(2))));
 
         // Behaves like the real downloader on success: the file ends up at its destination.
         _downloader.DownloadAsync(Arg.Any<DownloadRequest>(), Arg.Any<IProgress<long>?>(), Arg.Any<CancellationToken>())

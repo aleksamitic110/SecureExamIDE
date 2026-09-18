@@ -27,7 +27,8 @@ internal sealed class ExamCatalog(IApiClient apiClient, ISessionService session)
         Guid examId,
         CancellationToken cancellationToken = default) =>
         GetAllPagesAsync(
-            (page, accessToken) => apiClient.GetExamDependenciesAsync(examId, page, MaxPageSize, accessToken, cancellationToken),
+            (page, accessToken) => apiClient.GetExamDependenciesAsync(
+                examId, page, MaxPageSize, ClientPlatform.Current, accessToken, cancellationToken),
             cancellationToken);
 
     private async Task<ApiResult<IReadOnlyList<T>>> GetAllPagesAsync<T>(

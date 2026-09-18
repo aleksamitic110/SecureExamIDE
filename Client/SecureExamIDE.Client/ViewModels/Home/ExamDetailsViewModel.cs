@@ -6,6 +6,7 @@ using SecureExamIDE.Client.Services.Api;
 using SecureExamIDE.Client.Services.Exams;
 using SecureExamIDE.Client.Services.Navigation;
 using SecureExamIDE.Client.Services.Session;
+using SecureExamIDE.Client.ViewModels.ExamDay;
 
 namespace SecureExamIDE.Client.ViewModels.Home;
 
@@ -161,6 +162,31 @@ public sealed partial class ExamDetailsViewModel(
 
     [RelayCommand(CanExecute = nameof(IsDownloading))]
     private void CancelDownload() => _download?.Cancel();
+
+    // Straight into the exam from the catalog: the code screen, and then the workspace. Everything it
+    // needs comes from the local record, so it works exactly as it does offline.
+    [RelayCommand]
+    private async Task EnterAsync(SittingItemViewModel item)
+    {
+        if (_exam is null)
+        {
+            return;
+        }
+
+        DownloadedExam? local = await library.LoadAsync(_exam.Id);
+        DownloadedSitting? sitting = local?.Sittings.FirstOrDefault(s => s.SittingId == item.Sitting.Id);
+
+        if (local is null || sitting is null)
+        {
+            // The record is gone or was never written; downloading it again is the way back.
+            item.IsDownloaded = false;
+            ErrorMessage = "This sitting is no longer on this computer. Download it again.";
+
+            return;
+        }
+
+        Navigation.NavigateTo<UnlockSittingViewModel>(page => page.Initialize(local, sitting));
+    }
 
     [RelayCommand]
     private void Back() => Navigation.NavigateTo<StudentHomeViewModel>();

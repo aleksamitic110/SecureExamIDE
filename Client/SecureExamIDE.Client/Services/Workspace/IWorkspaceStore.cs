@@ -14,6 +14,10 @@ public interface IWorkspaceStore
 {
     IWorkspaceFiles Open(Guid examId, Guid sittingId, byte[] key);
 
+    // Where a compiler is given plain copies of the files to build. It is emptied after every run,
+    // so the encrypted files stay the only lasting copy.
+    string BuildDirectory(Guid examId, Guid sittingId);
+
     // Asked before the code is typed, so it needs no key.
     bool IsFinished(Guid examId, Guid sittingId);
 

@@ -1,7 +1,16 @@
 using Microsoft.Extensions.Time.Testing;
 using System.Security.Cryptography;
+using System.Threading.Channels;
+using SecureExamIDE.Client.Services.Api;
+using SecureExamIDE.Client.Services.ActivityLog;
 using SecureExamIDE.Client.Services.Exams;
+using Microsoft.Extensions.Options;
 using SecureExamIDE.Client.Services.Lockdown;
+using SecureExamIDE.Client.Services.Pdf;
+using SecureExamIDE.Client.Services.Run;
+using SecureExamIDE.Client.Services.Storage;
+using SecureExamIDE.Client.Services.Submission;
+using SecureExamIDE.Client.Services.Toolchains;
 using SecureExamIDE.Client.Services.Navigation;
 using SecureExamIDE.Client.Services.Unlock;
 using SecureExamIDE.Client.Services.Workspace;
@@ -22,8 +31,14 @@ public sealed class WorkspaceViewModelTests : IDisposable
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "secureexamide-tests-" + Guid.NewGuid().ToString("N"));
     private readonly INavigationService _navigation = Substitute.For<INavigationService>();
     private readonly IExamLockdown _lockdown = Substitute.For<IExamLockdown>();
+    private readonly IToolchainService _toolchains = Substitute.For<IToolchainService>();
+    private readonly IProgramRunner _runner = Substitute.For<IProgramRunner>();
+    private readonly IPdfRenderer _pdf = Substitute.For<IPdfRenderer>();
+    private readonly IUiPreferences _preferences = Substitute.For<IUiPreferences>();
     private readonly FakeTimeProvider _time = new(Now);
     private readonly WorkspaceStore _store;
+    private readonly ActivityLogStore _activityLogs;
+    private readonly ISubmissionService _submissions = Substitute.For<ISubmissionService>();
     private readonly List<WorkspaceViewModel> _pages = [];
 
     // The key an unlock would have derived from the one-time code.
@@ -31,8 +46,14 @@ public sealed class WorkspaceViewModelTests : IDisposable
 
     public WorkspaceViewModelTests()
     {
+        _submissions.SealAsync(Arg.Any<DownloadedExam>(), Arg.Any<DownloadedSitting>(), Arg.Any<byte[]>(), Arg.Any<byte[]>(), Arg.Any<CancellationToken>())
+            .Returns(call => ApiResult.Success(new SealedSubmission(
+                Exam.ExamId, Sitting.SittingId, Exam.Title, Now, 100, 3, HandedInAt: null)));
+
         _time.SetLocalTimeZone(TimeZoneInfo.Utc);
+        _preferences.ReadPanels().Returns(new WorkspacePanels());
         _store = new WorkspaceStore(new LocalExamLibrary(_directory));
+        _activityLogs = new ActivityLogStore(new LocalExamLibrary(_directory), _time);
     }
 
     public void Dispose()
@@ -50,9 +71,20 @@ public sealed class WorkspaceViewModelTests : IDisposable
 
     private WorkspaceViewModel OpenWorkspace(UnlockedExam? unlocked = null)
     {
-        var page = new WorkspaceViewModel(_navigation, _store, _lockdown, _time);
+        var page = new WorkspaceViewModel(
+            _navigation,
+            _store,
+            _activityLogs,
+            _submissions,
+            _toolchains,
+            _runner,
+            _pdf,
+            _lockdown,
+            Options.Create(new LockdownOptions()),
+            _preferences,
+            _time);
 #pragma warning disable CA2000 // The workspace owns the unlocked exam and wipes it when disposed.
-        page.Initialize(Exam, Sitting, unlocked ?? new UnlockedExam([new ExamTaskFile("tasks.txt", "1. Sort a list."u8.ToArray())], (byte[])_key.Clone()));
+        page.Initialize(Exam, Sitting, unlocked ?? new UnlockedExam([new ExamTaskFile("tasks.txt", "1. Sort a list."u8.ToArray())], (byte[])_key.Clone(), (byte[])_key.Clone()));
 #pragma warning restore CA2000
         _pages.Add(page);
 
@@ -207,9 +239,215 @@ public sealed class WorkspaceViewModelTests : IDisposable
         ListFiles().ShouldBeEmpty();
     }
 
+    private void ToolchainIsReady() =>
+        _toolchains.PrepareAsync(Arg.Any<DownloadedExam>(), Arg.Any<CancellationToken>())
+            .Returns(ApiResult.Success<IReadOnlyList<Toolchain>>(
+                [new Toolchain(ToolchainKind.Gcc, "GCC", "14.2.0", "/tools/gcc", "/tools/gcc/bin/gcc", "/tools/gcc/bin/g++")]));
+
+    // Runs the callback the workspace passed in, the way the real runner reports output.
+    private void RunnerBehaves(Func<RunRequest, Action<RunOutputLine>, ChannelReader<string>, CancellationToken, Task<RunResult>> behaviour) =>
+        _runner.RunAsync(Arg.Any<RunRequest>(), Arg.Any<Action<RunOutputLine>>(), Arg.Any<ChannelReader<string>>(), Arg.Any<CancellationToken>())
+            .Returns(call => behaviour(
+                call.Arg<RunRequest>(),
+                call.Arg<Action<RunOutputLine>>(),
+                call.Arg<ChannelReader<string>>(),
+                call.Arg<CancellationToken>()));
+
+    // What is on screen is what gets compiled, saved first so a crash cannot lose it.
+    [Fact]
+    public async Task Run_Should_CompileTheFilesAsTheyAreOnScreen()
+    {
+        // Arrange
+        WriteFile("main.c", "");
+        ToolchainIsReady();
+        RunRequest? compiled = null;
+        RunnerBehaves((request, output, _, _) =>
+        {
+            compiled = request;
+            output(new RunOutputLine("Hello\n", RunOutputKind.Output));
+
+            return Task.FromResult(new RunResult(Compiled: true, ExitCode: 0, TimeSpan.FromSeconds(1)));
+        });
+
+        WorkspaceViewModel page = OpenWorkspace();
+        page.ActiveFile!.Document.Insert(0, "int main(void) { return 0; }");
+
+        // Act
+        await page.RunCommand.ExecuteAsync(null);
+
+        // Assert
+        compiled!.Sources.ShouldHaveSingleItem().Text.ShouldBe("int main(void) { return 0; }");
+        ReadFile("main.c").ShouldBe("int main(void) { return 0; }");
+        page.ConsoleText.ShouldContain("Hello");
+        page.ConsoleText.ShouldContain("exit code 0");
+        page.IsRunning.ShouldBeFalse();
+    }
+
+    // What the student types reaches the program's standard input.
+    [Fact]
+    public async Task Typing_Should_ReachTheRunningProgram()
+    {
+        // Arrange
+        WriteFile("main.c", "");
+        ToolchainIsReady();
+        string? received = null;
+        RunnerBehaves(async (_, output, input, cancellationToken) =>
+        {
+            output(new RunOutputLine("Enter a number: ", RunOutputKind.Output));
+            received = await input.ReadAsync(cancellationToken);
+
+            return new RunResult(Compiled: true, ExitCode: 0, TimeSpan.FromSeconds(1));
+        });
+
+        WorkspaceViewModel page = OpenWorkspace();
+
+        // Act - the run is under way while the answer is typed.
+        Task running = page.RunCommand.ExecuteAsync(null);
+
+        while (!page.IsRunning)
+        {
+            await Task.Delay(10);
+        }
+
+        page.InputText = "7";
+        page.SendInputCommand.Execute(null);
+        await running;
+
+        // Assert
+        received.ShouldBe("7");
+        page.InputText.ShouldBeEmpty();
+        page.ConsoleText.ShouldContain("Enter a number:");
+        page.ConsoleText.ShouldContain("7");
+    }
+
+    [Fact]
+    public async Task Stop_Should_EndTheRun()
+    {
+        // Arrange
+        WriteFile("main.c", "");
+        ToolchainIsReady();
+        RunnerBehaves(async (_, output, _, cancellationToken) =>
+        {
+            output(new RunOutputLine("started", RunOutputKind.Output));
+            await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+
+            return new RunResult(Compiled: true, ExitCode: null, TimeSpan.Zero);
+        });
+
+        WorkspaceViewModel page = OpenWorkspace();
+
+        // Act
+        Task running = page.RunCommand.ExecuteAsync(null);
+
+        while (!page.IsRunning)
+        {
+            await Task.Delay(10);
+        }
+
+        page.StopCommand.Execute(null);
+
+        // Assert
+        await Should.ThrowAsync<OperationCanceledException>(async () => await running);
+        page.IsRunning.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Run_Should_SayWhenTheExamHasNoCompilerForThisComputer()
+    {
+        // Arrange
+        WriteFile("main.c", "");
+        _toolchains.PrepareAsync(Arg.Any<DownloadedExam>(), Arg.Any<CancellationToken>())
+            .Returns(ApiResult.Success<IReadOnlyList<Toolchain>>([]));
+
+        WorkspaceViewModel page = OpenWorkspace();
+
+        // Act
+        await page.RunCommand.ExecuteAsync(null);
+
+        // Assert
+        page.ConsoleText.ShouldContain("no compiler for this computer");
+        await _runner.DidNotReceiveWithAnyArgs().RunAsync(default!, default!, default!, default);
+    }
+
+    // The clock is shown, never enforced: the warnings are there to be noticed while the student reads.
+    [Fact]
+    public void Countdown_Should_CountDown_AndWarnAsTheSittingEnds()
+    {
+        // Arrange - the sitting ends two hours from now.
+        WorkspaceViewModel page = OpenWorkspace();
+        string atTheStart = page.TimeLeft;
+
+        // Act
+        _time.Advance(TimeSpan.FromMinutes(105));
+        string withFifteenMinutesLeft = page.TimeLeft;
+        bool endingSoon = page.IsEndingSoon;
+
+        _time.Advance(TimeSpan.FromMinutes(10));
+        _time.Advance(TimeSpan.FromMinutes(5));
+
+        // Assert
+        atTheStart.ShouldBe("2:00:00 left");
+        withFifteenMinutesLeft.ShouldBe("15:00 left");
+        endingSoon.ShouldBeTrue();
+        page.ConsoleText.ShouldContain("15 minutes left");
+        page.ConsoleText.ShouldContain("5 minutes left");
+        page.TimeLeft.ShouldBe("The sitting has ended");
+    }
+
+    // Aleksa asked for this: the panels can be put away so the editor or the console has the window,
+    // and the choice is remembered for next time.
+    [Fact]
+    public void Panels_Should_StartAsTheyWereLeft_AndRememberEveryChange()
+    {
+        // Arrange
+        _preferences.ReadPanels().Returns(new WorkspacePanels(Files: true, Tasks: false, Console: true));
+
+        // Act
+        WorkspaceViewModel page = OpenWorkspace();
+        bool tasksAtTheStart = page.IsTasksPanelShown;
+
+        page.ToggleConsolePanelCommand.Execute(null);
+
+        // Assert
+        tasksAtTheStart.ShouldBeFalse();
+        page.IsFilesPanelShown.ShouldBeTrue();
+        page.IsConsolePanelShown.ShouldBeFalse();
+        _preferences.Received().WritePanels(new WorkspacePanels(Files: true, Tasks: false, Console: false));
+    }
+
+    // Everything a professor would want to see about how the exam was taken, kept encrypted beside the
+    // work and handed in with it.
+    [Fact]
+    public async Task TheExam_Should_BeRecordedInTheActivityLog()
+    {
+        // Arrange
+        WriteFile("main.c", "");
+        WorkspaceViewModel page = OpenWorkspace();
+
+        // Act
+        page.ActiveFile!.Document.Insert(0, "int main(void) { return 0; }");
+        _time.Advance(TimeSpan.FromSeconds(2));
+
+        page.StartNewFileCommand.Execute(null);
+        page.FileName = "util.h";
+        page.ConfirmFileNameCommand.Execute(null);
+
+        page.AskToFinishCommand.Execute(null);
+        await page.ConfirmFinishCommand.ExecuteAsync(null);
+
+        // Assert
+        using IActivityLog log = _activityLogs.Open(Exam.ExamId, Sitting.SittingId, _key);
+        IReadOnlyList<ActivityEvent> events = log.Read();
+
+        events[0].Kind.ShouldBe(ActivityKind.ExamOpened);
+        events.ShouldContain(e => e.Kind == ActivityKind.FileSaved && e.Detail!.StartsWith("main.c", StringComparison.Ordinal));
+        events.ShouldContain(e => e.Kind == ActivityKind.FileCreated && e.Detail == "util.h");
+        events[^1].Kind.ShouldBe(ActivityKind.ExamFinished);
+    }
+
     // The only way out of the locked workspace.
     [Fact]
-    public void Finish_Should_SaveEverything_CloseTheSitting_AndUnlockTheApplication()
+    public async Task Finish_Should_SaveEverything_CloseTheSitting_AndUnlockTheApplication()
     {
         // Arrange
         WriteFile("main.c", "");
@@ -218,7 +456,7 @@ public sealed class WorkspaceViewModelTests : IDisposable
 
         // Act
         page.AskToFinishCommand.Execute(null);
-        page.ConfirmFinishCommand.Execute(null);
+        await page.ConfirmFinishCommand.ExecuteAsync(null);
 
         // Assert
         ReadFile("main.c").ShouldBe("last line typed");
@@ -263,7 +501,7 @@ public sealed class WorkspaceViewModelTests : IDisposable
     {
         // Arrange
 #pragma warning disable CA2000 // Handed to the workspace, which owns and disposes it.
-        var unlocked = new UnlockedExam([new ExamTaskFile("tasks.txt", "secret"u8.ToArray())], RandomNumberGenerator.GetBytes(32));
+        var unlocked = new UnlockedExam([new ExamTaskFile("tasks.txt", "secret"u8.ToArray())], RandomNumberGenerator.GetBytes(32), RandomNumberGenerator.GetBytes(32));
 #pragma warning restore CA2000
         byte[] content = unlocked.Files[0].Content;
         WorkspaceViewModel page = OpenWorkspace(unlocked);

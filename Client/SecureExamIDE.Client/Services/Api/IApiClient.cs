@@ -42,6 +42,21 @@ public interface IApiClient
         Guid examId,
         int page,
         int pageSize,
+        DependencyPlatform? platform,
+        string accessToken,
+        CancellationToken cancellationToken = default);
+
+    Task<ApiResult<UploadedSubmissionContent>> UploadSubmissionContentAsync(
+        Guid sittingId,
+        byte[] solution,
+        byte[] activityLog,
+        string accessToken,
+        CancellationToken cancellationToken = default);
+
+    Task<ApiResult<SubmissionReceipt>> CreateSubmissionAsync(
+        Guid sittingId,
+        string solutionObjectKey,
+        string activityLogObjectKey,
         string accessToken,
         CancellationToken cancellationToken = default);
 

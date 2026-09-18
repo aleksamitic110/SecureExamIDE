@@ -43,8 +43,12 @@ public sealed partial class SittingItemViewModel : ObservableObject
     public bool IsEnded { get; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanDownload))]
+    [NotifyPropertyChangedFor(nameof(CanDownload), nameof(CanEnter))]
     private bool _isDownloaded;
 
     public bool CanDownload => !IsEnded && !IsDownloaded;
+
+    // Once a sitting is on this computer the exam can be started from here, where the student already
+    // is, instead of through the separate list of downloaded exams.
+    public bool CanEnter => IsDownloaded;
 }
