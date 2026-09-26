@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace SecureExamIDE.Client.Services.ActivityLog;
 
@@ -168,5 +169,9 @@ internal sealed class EncryptedActivityLog : IActivityLog
     private const int NonceSize = 12;
     private const int TagSize = 16;
 
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    // Kinds are written as their names, so whoever opens the log reads "ExamWindowLeft" and not "9".
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() }
+    };
 }
