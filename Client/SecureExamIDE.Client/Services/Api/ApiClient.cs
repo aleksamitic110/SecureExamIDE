@@ -279,6 +279,40 @@ internal sealed class ApiClient(HttpClient httpClient) : IApiClient
     public Task<ApiResult> PublishExamAsync(Guid examId, string accessToken, CancellationToken cancellationToken = default) =>
         SendAsync(HttpMethod.Patch, $"exams/{examId}/publish", null, accessToken, cancellationToken);
 
+    // The times go as UTC. The screens work in the computer's local time, and this is the one place
+    // that conversion happens, so a sitting cannot be scheduled an hour out.
+    public Task<ApiResult<ScheduledSitting>> CreateExamSessionAsync(
+        Guid examId,
+        DateTimeOffset startsAt,
+        DateTimeOffset endsAt,
+        string accessToken,
+        CancellationToken cancellationToken = default) =>
+        SendForValueAsync<ScheduledSitting>(
+            HttpMethod.Post,
+            $"exams/{examId}/sessions",
+            new { startsAt = startsAt.UtcDateTime, endsAt = endsAt.UtcDateTime },
+            accessToken,
+            cancellationToken);
+
+    public Task<ApiResult<PagedList<MySitting>>> GetMySittingsAsync(
+        int page,
+        int pageSize,
+        Guid? examId,
+        string accessToken,
+        CancellationToken cancellationToken = default) =>
+        SendForValueAsync<PagedList<MySitting>>(
+            HttpMethod.Get,
+            PagedPath("sessions/mine", page, pageSize) + (examId is null ? string.Empty : $"&examId={examId}"),
+            null,
+            accessToken,
+            cancellationToken);
+
+    public Task<ApiResult> CancelSittingAsync(
+        Guid sittingId,
+        string accessToken,
+        CancellationToken cancellationToken = default) =>
+        SendAsync(HttpMethod.Patch, $"sessions/{sittingId}/cancel", null, accessToken, cancellationToken);
+
     private static string PagedPath(string path, int page, int pageSize) =>
         string.Create(CultureInfo.InvariantCulture, $"{path}?page={page}&pageSize={pageSize}");
 

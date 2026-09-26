@@ -84,6 +84,9 @@ public sealed partial class ProfessorHomeViewModel(
     private void NewExam() =>
         Navigation.NavigateTo<ExamEditorViewModel>(page => page.Initialize(null));
 
+    [RelayCommand]
+    private void OpenAllSittings() => Navigation.NavigateTo<SittingsViewModel>(page => page.Initialize());
+
     // Task files, toolchains and publishing live on the exam's own screen.
     [RelayCommand]
     private void OpenExam(MyExamItem item) =>

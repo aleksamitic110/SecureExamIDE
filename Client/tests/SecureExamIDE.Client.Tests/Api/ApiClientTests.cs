@@ -524,4 +524,115 @@ public sealed class ApiClientTests : IDisposable
         // Assert
         result.Error!.Code.ShouldBe("Exams.NoFiles");
     }
+
+    // The screens work in local time; this is the one place it becomes UTC, so a sitting cannot be
+    // scheduled an hour out.
+    [Fact]
+    public async Task CreateExamSession_Should_SendTheTimesAsUtc_AndReadTheCodeBack()
+    {
+        // Arrange
+        var examId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
+        _handler.Respond(
+            HttpStatusCode.OK,
+            $$"""
+            {"sessionId":"{{sessionId}}","oneTimeCode":"A2JR3FD3ANTC8DGVAES1",
+             "startsAt":"2026-09-27T07:00:00Z","endsAt":"2026-09-27T09:00:00Z",
+             "packageSizeBytes":2048,"packageSha256":"{{new string('a', 64)}}"}
+            """);
+        var starts = new DateTimeOffset(2026, 9, 27, 9, 0, 0, TimeSpan.FromHours(2));
+
+        // Act
+        ApiResult<ScheduledSitting> result = await _client.CreateExamSessionAsync(
+            examId, starts, starts.AddHours(2), "token-value");
+
+        // Assert
+        result.Value.OneTimeCode.ShouldBe("A2JR3FD3ANTC8DGVAES1");
+        result.Value.SessionId.ShouldBe(sessionId);
+
+        StubHttpMessageHandler.RecordedRequest request = _handler.Requests.ShouldHaveSingleItem();
+        request.Method.ShouldBe(HttpMethod.Post);
+        request.Path.ShouldBe($"/exams/{examId}/sessions");
+        // 09:00 at +02:00 is 07:00 UTC.
+        request.Body!.ShouldContain("2026-09-27T07:00:00Z");
+        request.Body!.ShouldContain("2026-09-27T09:00:00Z");
+    }
+
+    [Fact]
+    public async Task MySittings_Should_FilterByExam_WhenOneIsGiven()
+    {
+        // Arrange
+        var examId = Guid.NewGuid();
+        _handler.Respond(
+            HttpStatusCode.OK,
+            $$"""
+            {"items":[{"id":"{{Guid.NewGuid()}}","examId":"{{examId}}","examTitle":"Algorithms",
+              "startsAt":"2026-09-27T07:00:00Z","endsAt":"2026-09-27T09:00:00Z",
+              "isCancelled":true,"submissionCount":3,"createdAt":"2026-09-26T10:00:00Z"}],
+             "page":1,"pageSize":20,"totalCount":1,"hasNextPage":false,"hasPreviousPage":false}
+            """);
+
+        // Act
+        ApiResult<PagedList<MySitting>> result = await _client.GetMySittingsAsync(1, 20, examId, "token-value");
+
+        // Assert
+        MySitting sitting = result.Value.Items.ShouldHaveSingleItem();
+        sitting.IsCancelled.ShouldBeTrue();
+        sitting.SubmissionCount.ShouldBe(3);
+
+        StubHttpMessageHandler.RecordedRequest request = _handler.Requests.ShouldHaveSingleItem();
+        request.Path.ShouldBe("/sessions/mine");
+        request.Query.ShouldBe($"?page=1&pageSize=20&examId={examId}");
+    }
+
+    [Fact]
+    public async Task MySittings_Should_AskForAllOfThem_WhenNoExamIsGiven()
+    {
+        // Arrange
+        _handler.Respond(
+            HttpStatusCode.OK,
+            """{"items":[],"page":1,"pageSize":20,"totalCount":0,"hasNextPage":false,"hasPreviousPage":false}""");
+
+        // Act
+        await _client.GetMySittingsAsync(1, 20, null, "token-value");
+
+        // Assert
+        _handler.Requests.ShouldHaveSingleItem().Query.ShouldBe("?page=1&pageSize=20");
+    }
+
+    [Fact]
+    public async Task CancelSitting_Should_PatchTheCancelRoute()
+    {
+        // Arrange
+        var sittingId = Guid.NewGuid();
+        _handler.Respond(HttpStatusCode.NoContent);
+
+        // Act
+        ApiResult result = await _client.CancelSittingAsync(sittingId, "token-value");
+
+        // Assert
+        result.IsSuccess.ShouldBeTrue();
+
+        StubHttpMessageHandler.RecordedRequest request = _handler.Requests.ShouldHaveSingleItem();
+        request.Method.ShouldBe(HttpMethod.Patch);
+        request.Path.ShouldBe($"/sessions/{sittingId}/cancel");
+    }
+
+    // A sitting needs the sealed set of files, so a draft is refused.
+    [Fact]
+    public async Task CreateExamSession_Should_ReportTheRefusal_WhenTheExamIsADraft()
+    {
+        // Arrange
+        _handler.Respond(
+            HttpStatusCode.Conflict,
+            "{\"title\":\"ExamSessions.ExamNotPublished\",\"detail\":\"A session can only be scheduled for a published exam\",\"status\":409}",
+            "application/problem+json");
+
+        // Act
+        ApiResult<ScheduledSitting> result = await _client.CreateExamSessionAsync(
+            Guid.NewGuid(), DateTimeOffset.UtcNow.AddHours(1), DateTimeOffset.UtcNow.AddHours(3), "token-value");
+
+        // Assert
+        result.Error!.Code.ShouldBe("ExamSessions.ExamNotPublished");
+    }
 }

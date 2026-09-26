@@ -11,6 +11,7 @@
           <TextBlock Classes="info" Text="{Binding Subtitle}" />
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
+          <Button Classes="accent" Content="Sittings" Command="{Binding OpenSittingsCommand}" />
           <Button Content="Edit details" Command="{Binding EditDetailsCommand}" IsVisible="{Binding IsDraft}" />
           <Button Content="Back to your exams" Command="{Binding BackCommand}" />
         </StackPanel>

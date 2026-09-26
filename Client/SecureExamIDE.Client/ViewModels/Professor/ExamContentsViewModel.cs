@@ -271,6 +271,12 @@ public sealed partial class ExamContentsViewModel(
         }
     }
 
+    // Sittings are where the one-time code comes from, and they need the sealed set of files, so
+    // the way through only appears once the exam is published.
+    [RelayCommand]
+    private void OpenSittings() =>
+        Navigation.NavigateTo<SittingsViewModel>(page => page.Initialize(_examId, Title, !IsDraft));
+
     [RelayCommand]
     private void EditDetails() =>
         Navigation.NavigateTo<ExamEditorViewModel>(page => page.Initialize(_examId));

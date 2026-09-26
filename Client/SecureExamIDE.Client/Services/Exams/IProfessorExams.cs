@@ -35,4 +35,19 @@ public interface IProfessorExams
 
     // Puts the exam in the student catalog. There is no going back from it.
     Task<ApiResult> PublishExamAsync(Guid examId, CancellationToken cancellationToken = default);
+
+    // Schedules a sitting and returns its one-time code. The code is in the reply once and is never
+    // recoverable afterwards, so whatever calls this has to put it in front of the professor.
+    Task<ApiResult<ScheduledSitting>> ScheduleSittingAsync(
+        Guid examId,
+        DateTimeOffset startsAt,
+        DateTimeOffset endsAt,
+        CancellationToken cancellationToken = default);
+
+    Task<ApiResult<PagedList<MySitting>>> GetMySittingsAsync(
+        int page,
+        Guid? examId,
+        CancellationToken cancellationToken = default);
+
+    Task<ApiResult> CancelSittingAsync(Guid sittingId, CancellationToken cancellationToken = default);
 }

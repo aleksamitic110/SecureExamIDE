@@ -52,6 +52,26 @@ internal sealed class ProfessorExams(IApiClient apiClient, ISessionService sessi
     public Task<ApiResult> PublishExamAsync(Guid examId, CancellationToken cancellationToken = default) =>
         WithTokenAsync(token => apiClient.PublishExamAsync(examId, token, cancellationToken), cancellationToken);
 
+    public Task<ApiResult<ScheduledSitting>> ScheduleSittingAsync(
+        Guid examId,
+        DateTimeOffset startsAt,
+        DateTimeOffset endsAt,
+        CancellationToken cancellationToken = default) =>
+        WithTokenAsync(
+            token => apiClient.CreateExamSessionAsync(examId, startsAt, endsAt, token, cancellationToken),
+            cancellationToken);
+
+    public Task<ApiResult<PagedList<MySitting>>> GetMySittingsAsync(
+        int page,
+        Guid? examId,
+        CancellationToken cancellationToken = default) =>
+        WithTokenAsync(
+            token => apiClient.GetMySittingsAsync(page, PageSize, examId, token, cancellationToken),
+            cancellationToken);
+
+    public Task<ApiResult> CancelSittingAsync(Guid sittingId, CancellationToken cancellationToken = default) =>
+        WithTokenAsync(token => apiClient.CancelSittingAsync(sittingId, token, cancellationToken), cancellationToken);
+
     // The token is asked for immediately before the call, so a screen left open for an hour does not
     // send one that expired while it sat there.
     private async Task<ApiResult<T>> WithTokenAsync<T>(

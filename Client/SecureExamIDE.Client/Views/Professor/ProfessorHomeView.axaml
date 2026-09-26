@@ -22,6 +22,7 @@
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
           <ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" MinWidth="130" />
+          <Button Content="All sittings" Command="{Binding OpenAllSittingsCommand}" />
           <Button Content="Refresh" Command="{Binding LoadCommand}" />
           <Button Classes="accent" Content="New exam" Command="{Binding NewExamCommand}" />
         </StackPanel>

@@ -144,4 +144,24 @@ public interface IApiClient
 
     // Puts the exam in the student catalog. There is no going back, and no further change to it.
     Task<ApiResult> PublishExamAsync(Guid examId, string accessToken, CancellationToken cancellationToken = default);
+
+    // Schedules a sitting: the API seals the exam's files into a package for this sitting alone and
+    // answers with the one-time code that opens it. Only for a published exam, and the code is in
+    // the reply once and never again.
+    Task<ApiResult<ScheduledSitting>> CreateExamSessionAsync(
+        Guid examId,
+        DateTimeOffset startsAt,
+        DateTimeOffset endsAt,
+        string accessToken,
+        CancellationToken cancellationToken = default);
+
+    // The professor's own sittings, cancelled ones included, optionally for one exam.
+    Task<ApiResult<PagedList<MySitting>>> GetMySittingsAsync(
+        int page,
+        int pageSize,
+        Guid? examId,
+        string accessToken,
+        CancellationToken cancellationToken = default);
+
+    Task<ApiResult> CancelSittingAsync(Guid sittingId, string accessToken, CancellationToken cancellationToken = default);
 }

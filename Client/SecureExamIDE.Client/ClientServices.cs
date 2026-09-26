@@ -93,6 +93,7 @@ internal static class ClientServices
         services.AddTransient<ProfessorHomeViewModel>();
         services.AddTransient<ExamEditorViewModel>();
         services.AddTransient<ExamContentsViewModel>();
+        services.AddTransient<SittingsViewModel>();
 
         return services.BuildServiceProvider();
     }

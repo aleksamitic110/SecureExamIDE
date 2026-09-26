@@ -1,0 +1,132 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SecureExamIDE.Client.ViewModels.Professor"
+             x:Class="SecureExamIDE.Client.Views.Professor.SittingsView"
+             x:DataType="vm:SittingsViewModel">
+  <Panel>
+    <DockPanel Margin="32">
+      <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,20">
+        <StackPanel Spacing="4">
+          <TextBlock Classes="title" Text="{Binding Heading}" />
+          <TextBlock Classes="info" TextWrapping="Wrap" Text="{Binding Introduction}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
+          <Button Classes="accent" Content="Schedule a sitting"
+                  IsVisible="{Binding CanSchedule}" Command="{Binding BeginScheduleCommand}" />
+          <Button Content="Back" Command="{Binding BackCommand}" />
+        </StackPanel>
+      </Grid>
+
+      <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,12">
+        <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoading}" />
+        <TextBlock Classes="error" TextWrapping="Wrap" Text="{Binding ErrorMessage}"
+                   IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <TextBlock Classes="success" Text="{Binding StatusMessage}"
+                   IsVisible="{Binding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <TextBlock Classes="info" Text="No sittings have been scheduled yet." IsVisible="{Binding IsEmpty}" />
+      </StackPanel>
+
+      <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right" Margin="0,12,0,0">
+        <Button Content="Previous" Command="{Binding PreviousPageCommand}" />
+        <TextBlock VerticalAlignment="Center" Text="{Binding PageLabel}" />
+        <Button Content="Next" Command="{Binding NextPageCommand}" />
+      </StackPanel>
+
+      <ScrollViewer>
+        <ItemsControl ItemsSource="{Binding Sittings}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Spacing="12" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:MySittingItem">
+              <Border Classes="item">
+                <Grid ColumnDefinitions="*,Auto">
+                  <StackPanel Spacing="4">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                      <TextBlock Classes="itemTitle" Text="{Binding When}" />
+                      <Border Classes="badge">
+                        <TextBlock Text="{Binding Status}" />
+                      </Border>
+                    </StackPanel>
+                    <TextBlock Classes="info" Text="{Binding ExamTitle}" />
+                    <TextBlock Classes="info" Text="{Binding Handed}" />
+                  </StackPanel>
+                  <Button Grid.Column="1" VerticalAlignment="Center" Content="Cancel sitting"
+                          IsVisible="{Binding CanCancel}"
+                          Command="{Binding $parent[ItemsControl].((vm:SittingsViewModel)DataContext).AskToCancelSittingCommand}"
+                          CommandParameter="{Binding}" />
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </DockPanel>
+
+    <!-- Scheduling: local date and time, turned into UTC by the API client. -->
+    <Border IsVisible="{Binding IsScheduling}"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+      <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="560">
+        <StackPanel Classes="form">
+          <TextBlock Classes="heading" Text="Schedule a sitting" />
+          <TextBlock Classes="info" TextWrapping="Wrap"
+                     Text="The exam's task files are sealed into a package for this sitting alone. You are given the one-time code that opens it, once." />
+
+          <TextBlock Classes="label" Text="Starts" />
+          <Grid ColumnDefinitions="*,12,Auto">
+            <DatePicker Grid.Column="0" SelectedDate="{Binding StartDate}" />
+            <TimePicker Grid.Column="2" ClockIdentifier="24HourClock" SelectedTime="{Binding StartTime}" />
+          </Grid>
+
+          <TextBlock Classes="label" Text="Ends" />
+          <Grid ColumnDefinitions="*,12,Auto">
+            <DatePicker Grid.Column="0" SelectedDate="{Binding EndDate}" />
+            <TimePicker Grid.Column="2" ClockIdentifier="24HourClock" SelectedTime="{Binding EndTime}" />
+          </Grid>
+
+          <TextBlock Classes="error" TextWrapping="Wrap" Text="{Binding ScheduleError}"
+                     IsVisible="{Binding ScheduleError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsSaving}" />
+
+          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+            <Button Content="Cancel" Command="{Binding CancelScheduleCommand}" />
+            <Button Classes="accent" Content="Schedule" Command="{Binding ScheduleCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+
+    <!-- The one time the code exists outside the professor's hands. -->
+    <Border IsVisible="{Binding HasNewCode}"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+      <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="620">
+        <StackPanel Classes="form">
+          <TextBlock Classes="heading" Text="Write this code down now" />
+          <TextBlock Classes="info" Text="{Binding NewCodeDetails}" />
+          <TextBox Classes="code wide" IsReadOnly="True" Text="{Binding NewCode}" />
+          <TextBlock Classes="error" TextWrapping="Wrap"
+                     Text="This is the only time the code is shown. The server keeps only a digest of it, so it cannot be looked up again - if it is lost, the only way back is to schedule another sitting. Read it out to the students when the exam starts." />
+          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+            <Button Classes="accent" Content="I have written it down" Command="{Binding DismissCodeCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+
+    <Border IsVisible="{Binding IsConfirming}"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+      <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="560">
+        <StackPanel Classes="form">
+          <TextBlock Classes="heading" Text="Are you sure?" />
+          <TextBlock Classes="info" TextWrapping="Wrap" Text="{Binding ConfirmQuestion}" />
+          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+            <Button Content="No, go back" Command="{Binding CancelConfirmCommand}" />
+            <Button Classes="accent" Content="Yes, cancel it" Command="{Binding ConfirmCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+  </Panel>
+</UserControl>

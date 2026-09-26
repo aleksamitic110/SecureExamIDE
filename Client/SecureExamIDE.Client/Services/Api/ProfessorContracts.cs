@@ -43,3 +43,26 @@ public sealed record UploadedExamFile(string ObjectKey, long SizeBytes, string S
 // compiler is hundreds of megabytes of public archive and proxying it would hold a request open for
 // minutes. The key is the server's, so nothing can be written outside this exam's own space.
 public sealed record DependencyUploadTarget(string ObjectKey, Uri UploadUrl, DateTimeOffset ExpiresAt);
+
+// A sitting that has just been scheduled. OneTimeCode appears here and nowhere else, ever: the
+// server keeps only its digest, so nothing can look it up afterwards - not the professor, not the
+// API, not whoever runs the database. If it is lost, the only way back is a new sitting.
+public sealed record ScheduledSitting(
+    Guid SessionId,
+    string OneTimeCode,
+    DateTimeOffset StartsAt,
+    DateTimeOffset EndsAt,
+    long PackageSizeBytes,
+    string PackageSha256);
+
+// One of the professor's sittings, cancelled ones included - they are still part of the exam's
+// history, and work handed in before a cancellation stays.
+public sealed record MySitting(
+    Guid Id,
+    Guid ExamId,
+    string ExamTitle,
+    DateTimeOffset StartsAt,
+    DateTimeOffset EndsAt,
+    bool IsCancelled,
+    int SubmissionCount,
+    DateTimeOffset CreatedAt);
