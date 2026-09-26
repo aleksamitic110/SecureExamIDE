@@ -3,6 +3,7 @@ using SecureExamIDE.Client.Services.Navigation;
 using SecureExamIDE.Client.Services.Session;
 using SecureExamIDE.Client.ViewModels.Account;
 using SecureExamIDE.Client.ViewModels.Home;
+using SecureExamIDE.Client.ViewModels.Professor;
 
 namespace SecureExamIDE.Client.Tests.ViewModels;
 

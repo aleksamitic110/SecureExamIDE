@@ -7,6 +7,7 @@ using SecureExamIDE.Client.Services.Api;
 using SecureExamIDE.Client.Services.Credentials;
 using SecureExamIDE.Client.Services.Downloads;
 using SecureExamIDE.Client.Services.Exams;
+using SecureExamIDE.Client.Services.Files;
 using SecureExamIDE.Client.Services.Lockdown;
 using SecureExamIDE.Client.Services.Navigation;
 using SecureExamIDE.Client.Services.Pdf;
@@ -16,11 +17,13 @@ using SecureExamIDE.Client.Services.Storage;
 using SecureExamIDE.Client.Services.Submission;
 using SecureExamIDE.Client.Services.Toolchains;
 using SecureExamIDE.Client.Services.Unlock;
+using SecureExamIDE.Client.Services.Uploads;
 using SecureExamIDE.Client.Services.Workspace;
 using SecureExamIDE.Client.ViewModels;
 using SecureExamIDE.Client.ViewModels.Account;
 using SecureExamIDE.Client.ViewModels.ExamDay;
 using SecureExamIDE.Client.ViewModels.Home;
+using SecureExamIDE.Client.ViewModels.Professor;
 
 namespace SecureExamIDE.Client;
 
@@ -58,6 +61,11 @@ internal static class ClientServices
         services.AddSingleton<ILocalExamLibrary>(_ => new LocalExamLibrary(ClientPaths.DataDirectory));
         services.AddSingleton<IFileDownloader>(_ => new FileDownloader(CreateDownloadHttpClient()));
         services.AddSingleton<IExamCatalog, ExamCatalog>();
+        services.AddSingleton<IProfessorExams, ProfessorExams>();
+        services.AddSingleton<IFileUploader>(_ => new FileUploader(CreateDownloadHttpClient()));
+        services.AddSingleton<IExamContentService, ExamContentService>();
+        services.AddSingleton<WindowFilePicker>();
+        services.AddSingleton<IFilePicker>(provider => provider.GetRequiredService<WindowFilePicker>());
         services.AddSingleton<IExamDownloadService, ExamDownloadService>();
         services.AddSingleton<IPackageUnlocker, PackageUnlocker>();
         services.AddSingleton<IWorkspaceStore, WorkspaceStore>();
@@ -83,6 +91,8 @@ internal static class ClientServices
         services.AddTransient<UnlockSittingViewModel>();
         services.AddTransient<WorkspaceViewModel>();
         services.AddTransient<ProfessorHomeViewModel>();
+        services.AddTransient<ExamEditorViewModel>();
+        services.AddTransient<ExamContentsViewModel>();
 
         return services.BuildServiceProvider();
     }

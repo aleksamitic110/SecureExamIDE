@@ -1,0 +1,40 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SecureExamIDE.Client.ViewModels.Professor"
+             x:Class="SecureExamIDE.Client.Views.Professor.ExamEditorView"
+             x:DataType="vm:ExamEditorViewModel">
+  <ScrollViewer>
+    <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="720" Margin="32">
+      <StackPanel Classes="form">
+        <TextBlock Classes="title" Text="{Binding Heading}" />
+        <TextBlock Classes="info" TextWrapping="Wrap" Text="{Binding Introduction}" />
+
+        <TextBlock Classes="label" Text="Title" />
+        <TextBox Text="{Binding Title}" MaxLength="{Binding TitleMaxLength}"
+                 IsReadOnly="{Binding IsReadOnly}"
+                 PlaceholderText="Algorithms - September exam" />
+
+        <TextBlock Classes="label" Text="Subject" />
+        <TextBox Text="{Binding Subject}" MaxLength="{Binding SubjectMaxLength}"
+                 IsReadOnly="{Binding IsReadOnly}"
+                 PlaceholderText="Algorithms and Data Structures" />
+
+        <TextBlock Classes="label" Text="Description" />
+        <TextBox Text="{Binding Description}" MaxLength="{Binding DescriptionMaxLength}"
+                 IsReadOnly="{Binding IsReadOnly}"
+                 AcceptsReturn="True" TextWrapping="Wrap" Height="140"
+                 PlaceholderText="What the exam covers. Students see this in the catalog." />
+
+        <TextBlock Classes="error" Text="{Binding ErrorMessage}" TextWrapping="Wrap"
+                   IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoading}" />
+        <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsSaving}" />
+
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+          <Button Content="Back" Command="{Binding CancelCommand}" />
+          <Button Classes="accent" Content="{Binding SaveLabel}" IsDefault="True" Command="{Binding SaveCommand}" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+  </ScrollViewer>
+</UserControl>

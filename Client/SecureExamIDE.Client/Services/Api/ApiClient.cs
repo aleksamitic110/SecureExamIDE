@@ -146,6 +146,139 @@ internal sealed class ApiClient(HttpClient httpClient) : IApiClient
             accessToken,
             cancellationToken);
 
+    // An unknown status is a 400 from the API rather than an unfiltered list, so the enum's names
+    // have to reach it exactly as they are written here.
+    public Task<ApiResult<PagedList<MyExam>>> GetMyExamsAsync(
+        int page,
+        int pageSize,
+        ExamStatus? status,
+        string accessToken,
+        CancellationToken cancellationToken = default) =>
+        SendForValueAsync<PagedList<MyExam>>(
+            HttpMethod.Get,
+            PagedPath("exams/mine", page, pageSize) + (status is null ? string.Empty : $"&status={status}"),
+            null,
+            accessToken,
+            cancellationToken);
+
+    public Task<ApiResult<ExamDetails>> GetExamAsync(
+        Guid examId,
+        string accessToken,
+        CancellationToken cancellationToken = default) =>
+        SendForValueAsync<ExamDetails>(HttpMethod.Get, $"exams/{examId}", null, accessToken, cancellationToken);
+
+    public Task<ApiResult<Guid>> CreateExamAsync(
+        string title,
+        string description,
+        string subject,
+        string accessToken,
+        CancellationToken cancellationToken = default) =>
+        SendForValueAsync<Guid>(
+            HttpMethod.Post, "exams", new { title, description, subject }, accessToken, cancellationToken);
+
+    public Task<ApiResult> UpdateExamAsync(
+        Guid examId,
+        string title,
+        string description,
+        string subject,
+        string accessToken,
+        CancellationToken cancellationToken = default) =>
+        SendAsync(
+            HttpMethod.Patch, $"exams/{examId}", new { title, description, subject }, accessToken, cancellationToken);
+
+    public Task<ApiResult> DeleteExamAsync(Guid examId, string accessToken, CancellationToken cancellationToken = default) =>
+        SendAsync(HttpMethod.Delete, $"exams/{examId}", null, accessToken, cancellationToken);
+
+    // The API takes the file as a form part named "file" and measures the digest from the bytes it
+    // reads, so nothing here claims one.
+    public async Task<ApiResult<UploadedExamFile>> UploadExamFileContentAsync(
+        Guid examId,
+        string fileName,
+        Stream content,
+        string contentType,
+        string accessToken,
+        CancellationToken cancellationToken = default)
+    {
+        using var form = new MultipartFormDataContent();
+        using var fileContent = new StreamContent(content);
+
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        form.Add(fileContent, "file", fileName);
+
+        (HttpResponseMessage? response, ApiError? error) = await ExchangeContentAsync(
+            HttpMethod.Post, $"exams/{examId}/files/content", form, accessToken, cancellationToken);
+
+        if (error is not null)
+        {
+            return ApiResult.Failure<UploadedExamFile>(error);
+        }
+
+        using (response)
+        {
+            try
+            {
+                UploadedExamFile? uploaded =
+                    await response!.Content.ReadFromJsonAsync<UploadedExamFile>(JsonOptions, cancellationToken);
+
+                return uploaded is null
+                    ? ApiResult.Failure<UploadedExamFile>(UnexpectedResponse(response.StatusCode))
+                    : ApiResult.Success(uploaded);
+            }
+            catch (JsonException)
+            {
+                return ApiResult.Failure<UploadedExamFile>(UnexpectedResponse(response!.StatusCode));
+            }
+        }
+    }
+
+    public Task<ApiResult<Guid>> AddExamFileAsync(
+        Guid examId,
+        string objectKey,
+        string fileName,
+        string accessToken,
+        CancellationToken cancellationToken = default) =>
+        SendForValueAsync<Guid>(
+            HttpMethod.Post, $"exams/{examId}/files", new { objectKey, fileName }, accessToken, cancellationToken);
+
+    public Task<ApiResult> RemoveExamFileAsync(
+        Guid examId,
+        Guid fileId,
+        string accessToken,
+        CancellationToken cancellationToken = default) =>
+        SendAsync(HttpMethod.Delete, $"exams/{examId}/files/{fileId}", null, accessToken, cancellationToken);
+
+    public Task<ApiResult<DependencyUploadTarget>> CreateDependencyUploadUrlAsync(
+        Guid examId,
+        string accessToken,
+        CancellationToken cancellationToken = default) =>
+        SendForValueAsync<DependencyUploadTarget>(
+            HttpMethod.Post, $"exams/{examId}/dependencies/upload-url", null, accessToken, cancellationToken);
+
+    public Task<ApiResult<Guid>> AddExamDependencyAsync(
+        Guid examId,
+        string objectKey,
+        string name,
+        string version,
+        DependencyPlatform platform,
+        string accessToken,
+        CancellationToken cancellationToken = default) =>
+        SendForValueAsync<Guid>(
+            HttpMethod.Post,
+            $"exams/{examId}/dependencies",
+            new { objectKey, name, version, platform = platform.ToString() },
+            accessToken,
+            cancellationToken);
+
+    public Task<ApiResult> RemoveExamDependencyAsync(
+        Guid examId,
+        Guid dependencyId,
+        string accessToken,
+        CancellationToken cancellationToken = default) =>
+        SendAsync(HttpMethod.Delete, $"exams/{examId}/dependencies/{dependencyId}", null, accessToken, cancellationToken);
+
+    public Task<ApiResult> PublishExamAsync(Guid examId, string accessToken, CancellationToken cancellationToken = default) =>
+        SendAsync(HttpMethod.Patch, $"exams/{examId}/publish", null, accessToken, cancellationToken);
+
     private static string PagedPath(string path, int page, int pageSize) =>
         string.Create(CultureInfo.InvariantCulture, $"{path}?page={page}&pageSize={pageSize}");
 

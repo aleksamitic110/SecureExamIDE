@@ -17,10 +17,7 @@ public sealed class CatalogExamItem(CatalogExam exam, bool hasDownloadedSitting)
     public string ProfessorName => $"{exam.ProfessorFirstName} {exam.ProfessorLastName}";
 
     public string Contents =>
-        $"{Count(exam.FileCount, "task file")} · {Count(exam.DependencyCount, "dependency", "dependencies")} · {ByteSize.Format(exam.TotalSizeBytes)}";
+        $"{Plural.Format(exam.FileCount, "task file")} · {Plural.Format(exam.DependencyCount, "dependency", "dependencies")} · {ByteSize.Format(exam.TotalSizeBytes)}";
 
     public bool HasDownloadedSitting => hasDownloadedSitting;
-
-    private static string Count(int count, string singular, string? plural = null) =>
-        count == 1 ? $"1 {singular}" : $"{count} {plural ?? singular + "s"}";
 }

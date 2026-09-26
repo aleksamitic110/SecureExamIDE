@@ -1,6 +1,6 @@
 using Avalonia.Controls;
 
-namespace SecureExamIDE.Client.Views.Home;
+namespace SecureExamIDE.Client.Views.Professor;
 
 public partial class ProfessorHomeView : UserControl
 {

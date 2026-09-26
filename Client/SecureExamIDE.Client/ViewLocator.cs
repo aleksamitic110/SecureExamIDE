@@ -4,9 +4,11 @@ using SecureExamIDE.Client.ViewModels;
 using SecureExamIDE.Client.ViewModels.Account;
 using SecureExamIDE.Client.ViewModels.ExamDay;
 using SecureExamIDE.Client.ViewModels.Home;
+using SecureExamIDE.Client.ViewModels.Professor;
 using SecureExamIDE.Client.Views.Account;
 using SecureExamIDE.Client.Views.ExamDay;
 using SecureExamIDE.Client.Views.Home;
+using SecureExamIDE.Client.Views.Professor;
 
 namespace SecureExamIDE.Client;
 
@@ -27,7 +29,9 @@ public sealed class ViewLocator : IDataTemplate
         [typeof(DownloadedExamsViewModel)] = () => new DownloadedExamsView(),
         [typeof(UnlockSittingViewModel)] = () => new UnlockSittingView(),
         [typeof(WorkspaceViewModel)] = () => new WorkspaceView(),
-        [typeof(ProfessorHomeViewModel)] = () => new ProfessorHomeView()
+        [typeof(ProfessorHomeViewModel)] = () => new ProfessorHomeView(),
+        [typeof(ExamEditorViewModel)] = () => new ExamEditorView(),
+        [typeof(ExamContentsViewModel)] = () => new ExamContentsView()
     };
 
     public Control? Build(object? param) =>

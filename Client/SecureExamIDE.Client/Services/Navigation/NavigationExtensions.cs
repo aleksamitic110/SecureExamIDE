@@ -1,5 +1,6 @@
 using SecureExamIDE.Client.Services.Api;
 using SecureExamIDE.Client.ViewModels.Home;
+using SecureExamIDE.Client.ViewModels.Professor;
 
 namespace SecureExamIDE.Client.Services.Navigation;
 

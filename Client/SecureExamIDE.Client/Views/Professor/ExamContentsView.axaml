@@ -1,0 +1,176 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SecureExamIDE.Client.ViewModels.Professor"
+             x:Class="SecureExamIDE.Client.Views.Professor.ExamContentsView"
+             x:DataType="vm:ExamContentsViewModel">
+  <Panel>
+    <DockPanel Margin="32">
+      <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,20">
+        <StackPanel Spacing="4">
+          <TextBlock Classes="title" Text="{Binding Title}" />
+          <TextBlock Classes="info" Text="{Binding Subtitle}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
+          <Button Content="Edit details" Command="{Binding EditDetailsCommand}" IsVisible="{Binding IsDraft}" />
+          <Button Content="Back to your exams" Command="{Binding BackCommand}" />
+        </StackPanel>
+      </Grid>
+
+      <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,12">
+        <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoading}" />
+        <TextBlock Classes="error" TextWrapping="Wrap" Text="{Binding ErrorMessage}"
+                   IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <TextBlock Classes="success" Text="{Binding StatusMessage}"
+                   IsVisible="{Binding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <StackPanel Spacing="4" IsVisible="{Binding IsBusy}">
+          <TextBlock Classes="info" Text="{Binding ProgressText}" />
+          <Grid ColumnDefinitions="*,Auto">
+            <ProgressBar Value="{Binding ProgressPercent}" Maximum="100" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Margin="12,0,0,0" Content="Stop" Command="{Binding CancelUploadCommand}" />
+          </Grid>
+        </StackPanel>
+      </StackPanel>
+
+      <Border DockPanel.Dock="Bottom" Classes="item" Margin="0,16,0,0">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Classes="info" TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding PublishNote}" />
+          <Button Grid.Column="1" Classes="accent" Content="Publish exam"
+                  IsVisible="{Binding IsDraft}" Command="{Binding AskToPublishCommand}" />
+        </Grid>
+      </Border>
+
+      <ScrollViewer>
+        <StackPanel Spacing="20">
+          <StackPanel Spacing="8">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="2">
+                <TextBlock Classes="heading" Text="Task files" />
+                <TextBlock Classes="info"
+                           Text="What the student opens during the exam. These are sealed into the package when a sitting is scheduled." />
+              </StackPanel>
+              <Button Grid.Column="1" VerticalAlignment="Bottom" Content="Add task file"
+                      Command="{Binding AddTaskFileCommand}" />
+            </Grid>
+
+            <TextBlock Classes="info" Text="No task files yet." IsVisible="{Binding HasNoFiles}" />
+
+            <ItemsControl ItemsSource="{Binding Files}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Spacing="8" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ExamFileItem">
+                  <Border Classes="item">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <StackPanel Spacing="2">
+                        <TextBlock Classes="itemTitle" Text="{Binding FileName}" />
+                        <TextBlock Classes="info" Text="{Binding Details}" />
+                        <TextBlock Classes="info" Text="{Binding Digest}" />
+                      </StackPanel>
+                      <Button Grid.Column="1" VerticalAlignment="Center" Content="Remove"
+                              IsVisible="{Binding $parent[ItemsControl].((vm:ExamContentsViewModel)DataContext).IsDraft}"
+                              Command="{Binding $parent[ItemsControl].((vm:ExamContentsViewModel)DataContext).AskToRemoveFileCommand}"
+                              CommandParameter="{Binding}" />
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+
+          <StackPanel Spacing="8">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="2">
+                <TextBlock Classes="heading" Text="Toolchains" />
+                <TextBlock Classes="info"
+                           Text="Compilers the student downloads beforehand, one archive per operating system. They are never encrypted - a public toolchain is not a secret." />
+              </StackPanel>
+              <Button Grid.Column="1" VerticalAlignment="Bottom" Content="Add toolchain"
+                      Command="{Binding BeginAddToolchainCommand}" />
+            </Grid>
+
+            <ItemsControl ItemsSource="{Binding Dependencies}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Spacing="8" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ExamDependencyItem">
+                  <Border Classes="item">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <StackPanel Spacing="2">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                          <TextBlock Classes="itemTitle" Text="{Binding Name}" />
+                          <Border Classes="badge">
+                            <TextBlock Text="{Binding Platform}" />
+                          </Border>
+                        </StackPanel>
+                        <TextBlock Classes="info" Text="{Binding Details}" />
+                      </StackPanel>
+                      <Button Grid.Column="1" VerticalAlignment="Center" Content="Remove"
+                              IsVisible="{Binding $parent[ItemsControl].((vm:ExamContentsViewModel)DataContext).IsDraft}"
+                              Command="{Binding $parent[ItemsControl].((vm:ExamContentsViewModel)DataContext).AskToRemoveDependencyCommand}"
+                              CommandParameter="{Binding}" />
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </StackPanel>
+      </ScrollViewer>
+    </DockPanel>
+
+    <!-- The toolchain form: a compiler needs a name, a version and the platform it runs on. -->
+    <Border IsVisible="{Binding IsAddingToolchain}"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+      <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="560">
+        <StackPanel Classes="form">
+          <TextBlock Classes="heading" Text="Add a toolchain" />
+          <TextBlock Classes="info" TextWrapping="Wrap"
+                     Text="The archive goes straight to storage, so it can be large. The platform cannot be guessed from it - a Windows build of GCC does not run on Linux." />
+
+          <TextBlock Classes="label" Text="Name" />
+          <TextBox Text="{Binding ToolchainName}" MaxLength="{Binding NameMaxLength}" PlaceholderText="GCC (MinGW-w64)" />
+
+          <TextBlock Classes="label" Text="Version" />
+          <TextBox Text="{Binding ToolchainVersion}" MaxLength="{Binding VersionMaxLength}" PlaceholderText="14.2.0" />
+
+          <TextBlock Classes="label" Text="Runs on" />
+          <ComboBox ItemsSource="{Binding PlatformOptions}" SelectedItem="{Binding SelectedPlatform}" HorizontalAlignment="Stretch" />
+
+          <TextBlock Classes="label" Text="Archive" />
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock VerticalAlignment="Center" Classes="info" TextWrapping="Wrap"
+                       Text="{Binding ToolchainFileLabel, TargetNullValue='No file chosen yet.'}" />
+            <Button Grid.Column="1" Margin="12,0,0,0" Content="Choose file…"
+                    Command="{Binding ChooseToolchainFileCommand}" />
+          </Grid>
+
+          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+            <Button Content="Cancel" Command="{Binding CancelAddToolchainCommand}" />
+            <Button Classes="accent" Content="Upload" Command="{Binding AddToolchainCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+
+    <!-- One confirmation for publishing and for both kinds of removal: none of them can be undone. -->
+    <Border IsVisible="{Binding IsConfirming}"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+      <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="560">
+        <StackPanel Classes="form">
+          <TextBlock Classes="heading" Text="Are you sure?" />
+          <TextBlock Classes="info" TextWrapping="Wrap" Text="{Binding ConfirmQuestion}" />
+          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+            <Button Content="No, go back" Command="{Binding CancelConfirmCommand}" />
+            <Button Classes="accent" Content="Yes, do it" Command="{Binding ConfirmCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+  </Panel>
+</UserControl>

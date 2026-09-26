@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
+using SecureExamIDE.Client.Services.Files;
 using SecureExamIDE.Client.Services.Lockdown;
 using SecureExamIDE.Client.Services.Navigation;
 using SecureExamIDE.Client.ViewModels;
@@ -34,6 +35,9 @@ public partial class App : Application
 
             // The exam lockdown works on this window: fullscreen, on top, and not closable during an exam.
             _services.GetRequiredService<WindowExamLockdown>().Attach(mainWindow, desktop);
+
+            // Choosing a task file or a toolchain opens the operating system's own dialog over it.
+            _services.GetRequiredService<WindowFilePicker>().Attach(mainWindow);
 
             desktop.ShutdownRequested += (_, _) => _services.Dispose();
 
