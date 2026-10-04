@@ -11,6 +11,7 @@ using SecureExamIDE.Client.Services.Files;
 using SecureExamIDE.Client.Services.Lockdown;
 using SecureExamIDE.Client.Services.Navigation;
 using SecureExamIDE.Client.Services.Pdf;
+using SecureExamIDE.Client.Services.Review;
 using SecureExamIDE.Client.Services.Run;
 using SecureExamIDE.Client.Services.Session;
 using SecureExamIDE.Client.Services.Storage;
@@ -71,6 +72,9 @@ internal static class ClientServices
         services.AddSingleton<IWorkspaceStore, WorkspaceStore>();
         services.AddSingleton<IActivityLogStore, ActivityLogStore>();
         services.AddSingleton<ISubmissionService, SubmissionService>();
+        services.AddSingleton<IFileContentReader>(_ => new FileContentReader(CreateDownloadHttpClient()));
+        services.AddSingleton<ISubmissionReview, SubmissionReview>();
+        services.AddSingleton<IReviewKeyCache, ReviewKeyCache>();
         services.AddSingleton<IToolchainService, ToolchainService>();
         services.AddSingleton<IProgramRunner, ProgramRunner>();
         services.AddSingleton<IPdfRenderer, PdfRenderer>();
@@ -94,6 +98,8 @@ internal static class ClientServices
         services.AddTransient<ExamEditorViewModel>();
         services.AddTransient<ExamContentsViewModel>();
         services.AddTransient<SittingsViewModel>();
+        services.AddTransient<SubmissionsViewModel>();
+        services.AddTransient<SubmissionReviewViewModel>();
 
         return services.BuildServiceProvider();
     }

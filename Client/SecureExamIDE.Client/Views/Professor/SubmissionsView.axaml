@@ -1,0 +1,90 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SecureExamIDE.Client.ViewModels.Professor"
+             x:Class="SecureExamIDE.Client.Views.Professor.SubmissionsView"
+             x:DataType="vm:SubmissionsViewModel">
+  <Panel>
+    <DockPanel Margin="32">
+      <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,20">
+        <StackPanel Spacing="4">
+          <TextBlock Classes="title" Text="{Binding Heading}" TextWrapping="Wrap" />
+          <TextBlock Classes="info" Text="{Binding Details}" />
+          <TextBlock Classes="info"
+                     Text="Opening a solution asks for this sitting's one-time code once. The code is not stored - it is forgotten when you leave this sitting." />
+        </StackPanel>
+        <Button Grid.Column="1" VerticalAlignment="Top" Content="Back to sittings" Command="{Binding BackCommand}" />
+      </Grid>
+
+      <StackPanel DockPanel.Dock="Top" Spacing="8">
+        <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoading}" />
+        <TextBlock Classes="error" Text="{Binding ErrorMessage}"
+                   IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <TextBlock Classes="info" IsVisible="{Binding IsEmpty}"
+                   Text="Nobody has handed in for this sitting yet." />
+      </StackPanel>
+
+      <ScrollViewer>
+        <ItemsControl ItemsSource="{Binding Submissions}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Spacing="12" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:SubmissionItem">
+              <Border Classes="item">
+                <Grid ColumnDefinitions="*,Auto">
+                  <StackPanel Spacing="4">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                      <TextBlock Classes="itemTitle" Text="{Binding Student}" />
+                      <Border Classes="badge" IsVisible="{Binding IsLate}">
+                        <TextBlock Text="After the sitting ended" />
+                      </Border>
+                    </StackPanel>
+                    <TextBlock Classes="info" Text="{Binding Email}" />
+                    <TextBlock Classes="info">
+                      <Run Text="{Binding When}" />
+                      <Run Text=" " />
+                      <Run Text="{Binding From}" />
+                      <Run Text=" · " />
+                      <Run Text="{Binding Sizes}" />
+                    </TextBlock>
+                  </StackPanel>
+                  <Button Grid.Column="1" VerticalAlignment="Center" Classes="accent" Content="Open"
+                          Command="{Binding $parent[ItemsControl].((vm:SubmissionsViewModel)DataContext).OpenCommand}"
+                          CommandParameter="{Binding}" />
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </DockPanel>
+
+    <!-- The code is asked for inside the window, like every other confirmation in this application. -->
+    <Border Background="#99000000" IsVisible="{Binding IsAskingForCode}">
+      <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel Classes="form">
+          <TextBlock Classes="title" Text="This sitting's one-time code" />
+          <TextBlock Classes="info"
+                     Text="The code shown when the sitting was scheduled. It is what opens the students' work, and the server never stored it." />
+          <TextBox Classes="code wide" PlaceholderText="XXXX-XXXX-XXXX-XXXX-XXXX" MaxLength="40" Text="{Binding Code}" />
+          <TextBlock Classes="error" Text="{Binding CodeError}"
+                     IsVisible="{Binding CodeError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+            <Button Content="Cancel" Command="{Binding CancelCodeCommand}" />
+            <Button Classes="accent" Content="Open" IsDefault="True" Command="{Binding ConfirmCodeCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+
+    <Border Background="#99000000" IsVisible="{Binding IsOpening}">
+      <StackPanel Classes="form" Width="360" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <ProgressBar IsIndeterminate="True" />
+        <TextBlock Classes="info" HorizontalAlignment="Center"
+                   Text="Opening. Deriving the key from the code takes a moment on purpose." />
+      </StackPanel>
+    </Border>
+  </Panel>
+</UserControl>

@@ -46,6 +46,18 @@ public interface IApiClient
         string accessToken,
         CancellationToken cancellationToken = default);
 
+    Task<ApiResult<PagedList<SubmissionSummary>>> GetSessionSubmissionsAsync(
+        Guid sittingId,
+        int page,
+        int pageSize,
+        string accessToken,
+        CancellationToken cancellationToken = default);
+
+    Task<ApiResult<SubmissionDownload>> GetSubmissionDownloadAsync(
+        Guid submissionId,
+        string accessToken,
+        CancellationToken cancellationToken = default);
+
     Task<ApiResult<UploadedSubmissionContent>> UploadSubmissionContentAsync(
         Guid sittingId,
         byte[] solution,

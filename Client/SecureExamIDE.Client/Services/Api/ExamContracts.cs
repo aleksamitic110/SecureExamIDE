@@ -62,3 +62,31 @@ public sealed record SubmissionReceipt(
     string SolutionSha256,
     long ActivityLogSizeBytes,
     string ActivityLogSha256);
+
+// What a professor sees about one handed-in submission, before opening it.
+public sealed record SubmissionSummary(
+    Guid Id,
+    Guid StudentId,
+    string StudentFirstName,
+    string StudentLastName,
+    string? StudentIndexNumber,
+    string StudentEmail,
+    string DeviceName,
+    DateTimeOffset SubmittedAt,
+    bool SubmittedAfterSessionEnded,
+    long SolutionSizeBytes,
+    string SolutionSha256,
+    long ActivityLogSizeBytes,
+    string ActivityLogSha256);
+
+// Short-lived links to the sealed solution and its activity log, with the digests the server measured
+// when they arrived, so whatever fetches them can check it got exactly those bytes.
+public sealed record SubmissionDownload(
+    Guid SubmissionId,
+    Uri SolutionUrl,
+    Uri ActivityLogUrl,
+    DateTimeOffset ExpiresAt,
+    long SolutionSizeBytes,
+    string SolutionSha256,
+    long ActivityLogSizeBytes,
+    string ActivityLogSha256);

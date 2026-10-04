@@ -32,7 +32,9 @@ public sealed class ViewLocator : IDataTemplate
         [typeof(ProfessorHomeViewModel)] = () => new ProfessorHomeView(),
         [typeof(ExamEditorViewModel)] = () => new ExamEditorView(),
         [typeof(ExamContentsViewModel)] = () => new ExamContentsView(),
-        [typeof(SittingsViewModel)] = () => new SittingsView()
+        [typeof(SittingsViewModel)] = () => new SittingsView(),
+        [typeof(SubmissionsViewModel)] = () => new SubmissionsView(),
+        [typeof(SubmissionReviewViewModel)] = () => new SubmissionReviewView()
     };
 
     public Control? Build(object? param) =>

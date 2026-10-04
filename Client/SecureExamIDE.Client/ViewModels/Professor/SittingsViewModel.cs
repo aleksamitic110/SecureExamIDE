@@ -131,6 +131,11 @@ public sealed partial class SittingsViewModel(
     [RelayCommand(CanExecute = nameof(HasPreviousPage))]
     private Task PreviousPageAsync() => LoadPageAsync(Page - 1);
 
+    // Into the review: who handed in for this sitting, and their work once the code is given.
+    [RelayCommand]
+    private void OpenSubmissions(MySittingItem item) =>
+        Navigation.NavigateTo<SubmissionsViewModel>(page => page.Initialize(item.Id, item.ExamTitle, item.When));
+
     [RelayCommand]
     private void BeginSchedule()
     {

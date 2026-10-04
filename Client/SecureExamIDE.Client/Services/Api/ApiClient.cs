@@ -313,6 +313,23 @@ internal sealed class ApiClient(HttpClient httpClient) : IApiClient
         CancellationToken cancellationToken = default) =>
         SendAsync(HttpMethod.Patch, $"sessions/{sittingId}/cancel", null, accessToken, cancellationToken);
 
+    // The professor's review: who handed in for this sitting, and where to fetch what they handed in.
+    public Task<ApiResult<PagedList<SubmissionSummary>>> GetSessionSubmissionsAsync(
+        Guid sittingId,
+        int page,
+        int pageSize,
+        string accessToken,
+        CancellationToken cancellationToken = default) =>
+        SendForValueAsync<PagedList<SubmissionSummary>>(
+            HttpMethod.Get, PagedPath($"sessions/{sittingId}/submissions", page, pageSize), null, accessToken, cancellationToken);
+
+    public Task<ApiResult<SubmissionDownload>> GetSubmissionDownloadAsync(
+        Guid submissionId,
+        string accessToken,
+        CancellationToken cancellationToken = default) =>
+        SendForValueAsync<SubmissionDownload>(
+            HttpMethod.Get, $"submissions/{submissionId}/download", null, accessToken, cancellationToken);
+
     private static string PagedPath(string path, int page, int pageSize) =>
         string.Create(CultureInfo.InvariantCulture, $"{path}?page={page}&pageSize={pageSize}");
 

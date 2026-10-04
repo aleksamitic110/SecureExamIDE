@@ -53,10 +53,15 @@
                     <TextBlock Classes="info" Text="{Binding ExamTitle}" />
                     <TextBlock Classes="info" Text="{Binding Handed}" />
                   </StackPanel>
-                  <Button Grid.Column="1" VerticalAlignment="Center" Content="Cancel sitting"
-                          IsVisible="{Binding CanCancel}"
-                          Command="{Binding $parent[ItemsControl].((vm:SittingsViewModel)DataContext).AskToCancelSittingCommand}"
-                          CommandParameter="{Binding}" />
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Button Classes="accent" Content="Submissions"
+                            Command="{Binding $parent[ItemsControl].((vm:SittingsViewModel)DataContext).OpenSubmissionsCommand}"
+                            CommandParameter="{Binding}" />
+                    <Button Content="Cancel sitting"
+                            IsVisible="{Binding CanCancel}"
+                            Command="{Binding $parent[ItemsControl].((vm:SittingsViewModel)DataContext).AskToCancelSittingCommand}"
+                            CommandParameter="{Binding}" />
+                  </StackPanel>
                 </Grid>
               </Border>
             </DataTemplate>

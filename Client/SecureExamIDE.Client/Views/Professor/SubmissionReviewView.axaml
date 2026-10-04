@@ -1,0 +1,90 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SecureExamIDE.Client.ViewModels.Professor"
+             xmlns:log="using:SecureExamIDE.Client.Services.ActivityLog"
+             xmlns:ae="https://github.com/avaloniaui/avaloniaedit"
+             x:Class="SecureExamIDE.Client.Views.Professor.SubmissionReviewView"
+             x:DataType="vm:SubmissionReviewViewModel">
+  <DockPanel Margin="24">
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,16">
+      <StackPanel Spacing="4">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBlock Classes="title" Text="{Binding Student}" />
+          <Border Classes="badge" IsVisible="{Binding IsLate}">
+            <TextBlock Text="After the sitting ended" />
+          </Border>
+        </StackPanel>
+        <TextBlock Classes="info" Text="{Binding Details}" />
+        <TextBlock Classes="success" Text="{Binding EvidenceNote}" TextWrapping="Wrap" />
+      </StackPanel>
+      <Button Grid.Column="1" VerticalAlignment="Top" Margin="0,0,8,0" Content="Save files to a folder"
+              Command="{Binding ExportCommand}" />
+      <Button Grid.Column="2" VerticalAlignment="Top" Content="Back" Command="{Binding BackCommand}" />
+    </Grid>
+
+    <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,12">
+      <TextBlock Classes="error" Text="{Binding ActivityLogWarning}" TextWrapping="Wrap"
+                 IsVisible="{Binding !IsActivityLogComplete}" />
+      <TextBlock Classes="error" Text="{Binding ErrorMessage}" TextWrapping="Wrap"
+                 IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+      <TextBlock Classes="success" Text="{Binding StatusMessage}" TextWrapping="Wrap"
+                 IsVisible="{Binding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+    </StackPanel>
+
+    <Grid ColumnDefinitions="220,12,*,12,360">
+      <!-- The student's files -->
+      <Border Classes="item" Padding="4">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Classes="heading" FontSize="14" Margin="8,6" Text="Files" />
+          <ListBox ItemsSource="{Binding Files}" SelectedItem="{Binding SelectedFile}" Background="Transparent">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ReviewedFileItem">
+                <StackPanel Spacing="2">
+                  <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Classes="info" Text="{Binding Size}" />
+                </StackPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </DockPanel>
+      </Border>
+
+      <!-- Read-only, with highlighting: the same editor the student wrote it in. -->
+      <Border Grid.Column="2" Classes="item" Padding="0">
+        <Panel>
+          <ae:TextEditor x:Name="Editor" IsReadOnly="True" ShowLineNumbers="True"
+                         FontFamily="Cascadia Mono, Consolas, DejaVu Sans Mono, Menlo, monospace"
+                         FontSize="13" Padding="4"
+                         Document="{Binding SelectedFile.Document, FallbackValue={x:Null}}"
+                         IsVisible="{Binding HasSelectedFile}" />
+          <TextBlock Classes="info" Margin="16" TextWrapping="Wrap" IsVisible="{Binding !HasSelectedFile}"
+                     Text="This solution has no file that can be shown here." />
+        </Panel>
+      </Border>
+
+      <!-- The activity log that came with it -->
+      <Border Grid.Column="4" Classes="item" Padding="4">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Classes="heading" FontSize="14" Margin="8,6" Text="Activity log" />
+          <ScrollViewer>
+            <ItemsControl ItemsSource="{Binding ActivityEvents}" Margin="8,0">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="log:ActivityEvent">
+                  <Grid ColumnDefinitions="Auto,*" Margin="0,2">
+                    <TextBlock Classes="info" FontFamily="Cascadia Mono, Consolas, monospace" FontSize="11"
+                               Text="{Binding At, StringFormat='{}{0:HH:mm:ss}'}" Margin="0,0,8,0" />
+                    <StackPanel Grid.Column="1" Spacing="1">
+                      <TextBlock Text="{Binding Kind}" FontSize="12" />
+                      <TextBlock Classes="info" FontSize="11" Text="{Binding Detail}" TextWrapping="Wrap"
+                                 IsVisible="{Binding Detail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    </StackPanel>
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </DockPanel>
+      </Border>
+    </Grid>
+  </DockPanel>
+</UserControl>

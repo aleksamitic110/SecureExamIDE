@@ -6,6 +6,9 @@ public interface IFilePicker
 {
     // Null when the person closed the dialog without choosing anything.
     Task<PickedFile?> PickFileAsync(string title, CancellationToken cancellationToken = default);
+
+    // The folder's path, for writing a student's exported files into.
+    Task<string?> PickFolderAsync(string title, CancellationToken cancellationToken = default);
 }
 
 public sealed record PickedFile(string Name, string Path, long SizeBytes);

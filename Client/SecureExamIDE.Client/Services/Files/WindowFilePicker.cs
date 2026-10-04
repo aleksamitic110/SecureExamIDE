@@ -40,4 +40,17 @@ internal sealed class WindowFilePicker : IFilePicker
 
         return new PickedFile(file.Name, path, (long)(properties.Size ?? 0));
     }
+
+    public async Task<string?> PickFolderAsync(string title, CancellationToken cancellationToken = default)
+    {
+        if (_window is null)
+        {
+            return null;
+        }
+
+        IReadOnlyList<IStorageFolder> chosen = await _window.StorageProvider.OpenFolderPickerAsync(
+            new FolderPickerOpenOptions { Title = title, AllowMultiple = false });
+
+        return chosen.Count == 0 ? null : chosen[0].TryGetLocalPath();
+    }
 }
