@@ -78,6 +78,7 @@ public sealed class WorkspaceViewModelTests : IDisposable
             _submissions,
             _toolchains,
             _runner,
+            new LanguageDrivers([new GccDriver()]),
             _pdf,
             _lockdown,
             Options.Create(new LockdownOptions()),
@@ -242,7 +243,16 @@ public sealed class WorkspaceViewModelTests : IDisposable
     private void ToolchainIsReady() =>
         _toolchains.PrepareAsync(Arg.Any<DownloadedExam>(), Arg.Any<CancellationToken>())
             .Returns(ApiResult.Success<IReadOnlyList<Toolchain>>(
-                [new Toolchain(ToolchainKind.Gcc, "GCC", "14.2.0", "/tools/gcc", "/tools/gcc/bin/gcc", "/tools/gcc/bin/g++")]));
+                [new Toolchain(
+                    ToolchainKind.Gcc,
+                    "GCC",
+                    "14.2.0",
+                    "/tools/gcc",
+                    new Dictionary<ToolName, string>
+                    {
+                        [ToolName.CCompiler] = "/tools/gcc/bin/gcc",
+                        [ToolName.CppCompiler] = "/tools/gcc/bin/g++"
+                    })]));
 
     // Runs the callback the workspace passed in, the way the real runner reports output.
     private void RunnerBehaves(Func<RunRequest, Action<RunOutputLine>, ChannelReader<string>, CancellationToken, Task<RunResult>> behaviour) =>
@@ -443,6 +453,59 @@ public sealed class WorkspaceViewModelTests : IDisposable
         events.ShouldContain(e => e.Kind == ActivityKind.FileSaved && e.Detail!.StartsWith("main.c", StringComparison.Ordinal));
         events.ShouldContain(e => e.Kind == ActivityKind.FileCreated && e.Detail == "util.h");
         events[^1].Kind.ShouldBe(ActivityKind.ExamFinished);
+    }
+
+    // A first opening is ordinary; only coming back to a sitting is worth a professor's attention.
+    [Fact]
+    public void Open_Should_NotRecordAReopening_TheFirstTime()
+    {
+        // Act
+        OpenWorkspace();
+
+        // Assert
+        using IActivityLog log = _activityLogs.Open(Exam.ExamId, Sitting.SittingId, _key);
+        log.Read().ShouldNotContain(e => e.Kind == ActivityKind.ExamReopened);
+    }
+
+    // The application was stopped in the middle of the exam - Task Manager, a crash, the power button -
+    // and the same code opened it again. The work comes back, and the professor is told.
+    [Fact]
+    public void Open_Should_RecordAReopening_WhenTheEarlierSessionEndedWithoutClosing()
+    {
+        // Arrange
+        using (IActivityLog earlier = _activityLogs.Open(Exam.ExamId, Sitting.SittingId, _key))
+        {
+            earlier.Write(ActivityKind.ExamOpened, Exam.Title);
+            earlier.Write(ActivityKind.FileSaved, "main.c (10 characters)");
+        }
+
+        // Act
+        OpenWorkspace();
+
+        // Assert
+        using IActivityLog log = _activityLogs.Open(Exam.ExamId, Sitting.SittingId, _key);
+        IReadOnlyList<ActivityEvent> events = log.Read();
+
+        ActivityEvent reopened = events.Single(e => e.Kind == ActivityKind.ExamReopened);
+        reopened.Detail.ShouldBe("The earlier session ended without closing: the application was stopped or crashed.");
+        reopened.Kind.SuggestsCheating().ShouldBeTrue();
+        events[^1].Kind.ShouldBe(ActivityKind.ExamOpened);
+    }
+
+    [Fact]
+    public void Open_Should_RecordAReopening_AndSayTheEarlierSessionWasClosed()
+    {
+        // Arrange
+        OpenWorkspace().Dispose();
+
+        // Act
+        OpenWorkspace();
+
+        // Assert
+        using IActivityLog log = _activityLogs.Open(Exam.ExamId, Sitting.SittingId, _key);
+
+        log.Read().Single(e => e.Kind == ActivityKind.ExamReopened)
+            .Detail.ShouldBe("The earlier session was closed by the application.");
     }
 
     // The only way out of the locked workspace.

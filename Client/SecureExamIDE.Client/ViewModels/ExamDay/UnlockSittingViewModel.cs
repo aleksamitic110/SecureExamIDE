@@ -2,8 +2,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SecureExamIDE.Client.Services.Api;
 using SecureExamIDE.Client.Services.Exams;
-using Microsoft.Extensions.Options;
-using SecureExamIDE.Client.Services.Lockdown;
 using SecureExamIDE.Client.Services.Navigation;
 using SecureExamIDE.Client.Services.Unlock;
 using SecureExamIDE.Client.Services.Workspace;
@@ -14,15 +12,14 @@ namespace SecureExamIDE.Client.ViewModels.ExamDay;
 // with it, on this computer, with no network. The code is the lock; the clock is only shown, never
 // enforced, so a laptop with a wrong clock cannot shut a student out of their own exam.
 //
-// A sitting the student has finished stays closed: the code no longer opens it from here. A testing
-// build - the same switch that provides the emergency exit - opens it again, and says so, because
-// otherwise every test of the exam costs a fresh sitting.
+// A sitting the student has finished stays closed: the code no longer opens it from here, in any
+// build. A testing build used to open it again, which meant the application being tried did not
+// behave like the one a student gets; a fresh sitting for a test comes from the seeding tool.
 public sealed partial class UnlockSittingViewModel(
     INavigationService navigation,
     IPackageUnlocker unlocker,
     ILocalExamLibrary library,
     IWorkspaceStore workspace,
-    IOptions<LockdownOptions> lockdownOptions,
     TimeProvider timeProvider) : ViewModelBase
 {
     private DownloadedExam? _exam;
@@ -52,9 +49,7 @@ public sealed partial class UnlockSittingViewModel(
     [NotifyPropertyChangedFor(nameof(CanEnterCode))]
     private bool _isFinished;
 
-    public bool CanEnterCode => !IsFinished || IsTestingBuild;
-
-    private bool IsTestingBuild => lockdownOptions.Value.AllowEmergencyExit;
+    public bool CanEnterCode => !IsFinished;
 
     public void Initialize(DownloadedExam exam, DownloadedSitting sitting)
     {
@@ -67,7 +62,6 @@ public sealed partial class UnlockSittingViewModel(
         IsFinished = workspace.IsFinished(exam.ExamId, sitting.SittingId);
         Status = IsFinished switch
         {
-            true when IsTestingBuild => "You finished this sitting. Testing build: the code opens it again anyway.",
             true => "You have finished this sitting. It cannot be opened again.",
             _ => item.Status switch
             {

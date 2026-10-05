@@ -3,9 +3,9 @@ namespace SecureExamIDE.Client.Services.Lockdown;
 public sealed class LockdownOptions
 {
     // A testing build. It switches on the escape hatch - Ctrl+Alt+Shift+Q saves the work, leaves the
-    // lockdown and closes the application - and lets a finished sitting be opened again with its code.
-    // Both exist because testing an exam must not cost a restart of the computer, or a fresh sitting
-    // every time; in a real exam either would be a way around the rules.
+    // lockdown and closes the application - because testing an exam must not cost a restart of the
+    // computer; in a real exam it would be a way around the rules. Opening the sitting again afterwards
+    // is recorded in the activity log like any other reopening, and a finished sitting stays closed.
     //
     // A Debug build switches it on in the composition root; a Release build needs
     // "Lockdown:AllowEmergencyExit" in configuration.

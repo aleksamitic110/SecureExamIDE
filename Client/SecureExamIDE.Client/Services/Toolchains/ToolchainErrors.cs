@@ -15,10 +15,4 @@ internal static class ToolchainErrors
         "Toolchains.CannotUnpack",
         $"'{name}' could not be unpacked: {detail}",
         []);
-
-    public static readonly ApiError NoCompiler = new(
-        0,
-        "Toolchains.NoCompiler",
-        "No C or C++ compiler was found for this exam on this computer.",
-        []);
 }

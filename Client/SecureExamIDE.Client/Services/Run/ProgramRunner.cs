@@ -6,7 +6,7 @@ using System.Threading.Channels;
 
 namespace SecureExamIDE.Client.Services.Run;
 
-internal sealed class ProgramRunner(TimeProvider timeProvider) : IProgramRunner
+internal sealed class ProgramRunner(TimeProvider timeProvider, ILanguageDrivers drivers) : IProgramRunner
 {
     public async Task<RunResult> RunAsync(
         RunRequest request,
@@ -18,18 +18,45 @@ internal sealed class ProgramRunner(TimeProvider timeProvider) : IProgramRunner
 
         try
         {
+            ILanguageDriver? driver = drivers.ForSources(request.Sources);
+
+            if (driver is null)
+            {
+                output(new RunOutputLine(
+                    $"There is nothing to compile: no {drivers.FileKinds} file in the workspace.",
+                    RunOutputKind.Notice));
+
+                return new RunResult(Compiled: false, ExitCode: null, timeProvider.GetElapsedTime(startedAt));
+            }
+
+            if (!driver.CanBuildWith(request.Toolchain, request.Sources))
+            {
+                output(new RunOutputLine(
+                    $"The exam's toolchain '{request.Toolchain.Name}' has no {driver.LanguageOf(request.Sources)} compiler on this computer.",
+                    RunOutputKind.Notice));
+
+                return new RunResult(Compiled: false, ExitCode: null, timeProvider.GetElapsedTime(startedAt));
+            }
+
             WriteSources(request);
 
-            string programPath = Path.Combine(request.BuildDirectory, OperatingSystem.IsWindows() ? "program.exe" : "program");
+            var context = new BuildContext(
+                request.Toolchain,
+                request.BuildDirectory,
+                request.Sources,
+                Path.Combine(request.BuildDirectory, OperatingSystem.IsWindows() ? "program.exe" : "program"),
+                request.EntryName);
 
-            if (!await CompileAsync(request, programPath, output, cancellationToken))
+            // No compile step at all is what an interpreted language returns; there is simply nothing
+            // to do before running.
+            if (driver.Compile(context) is { } compile && !await CompileAsync(compile, request, output, cancellationToken))
             {
                 return new RunResult(Compiled: false, ExitCode: null, timeProvider.GetElapsedTime(startedAt));
             }
 
             output(new RunOutputLine("Running.", RunOutputKind.Notice));
 
-            int? exitCode = await ExecuteAsync(request, programPath, output, input, cancellationToken);
+            int? exitCode = await ExecuteAsync(driver.Run(context), request, output, input, cancellationToken);
 
             return new RunResult(Compiled: true, exitCode, timeProvider.GetElapsedTime(startedAt));
         }
@@ -58,43 +85,19 @@ internal sealed class ProgramRunner(TimeProvider timeProvider) : IProgramRunner
         }
     }
 
-    private async Task<bool> CompileAsync(
+    private static async Task<bool> CompileAsync(
+        Invocation compile,
         RunRequest request,
-        string programPath,
         Action<RunOutputLine> output,
         CancellationToken cancellationToken)
     {
-        bool cpp = SourceLanguage.IsCpp(request.Sources);
-        string? compiler = cpp ? request.Toolchain.CppCompilerPath : request.Toolchain.CCompilerPath;
+        output(new RunOutputLine(
+            $"{Path.GetFileName(compile.FileName)} {string.Join(' ', compile.Arguments)}",
+            RunOutputKind.Notice));
 
-        if (compiler is null)
-        {
-            output(new RunOutputLine(
-                $"The exam's toolchain '{request.Toolchain.Name}' has no {(cpp ? "C++" : "C")} compiler on this computer.",
-                RunOutputKind.Notice));
+        using var process = new Process { StartInfo = StartInfo(compile, request.BuildDirectory) };
 
-            return false;
-        }
-
-        string[] sources = [.. request.Sources.Where(SourceLanguage.IsCompiled).Select(source => Path.GetFileName(source.Name))];
-
-        if (sources.Length == 0)
-        {
-            output(new RunOutputLine("There is nothing to compile: no .c or .cpp file in the workspace.", RunOutputKind.Notice));
-
-            return false;
-        }
-
-        var arguments = new List<string> { cpp ? "-std=c++20" : "-std=c17", "-Wall", "-O0", "-g" };
-        arguments.AddRange(sources);
-        arguments.Add("-o");
-        arguments.Add(programPath);
-
-        output(new RunOutputLine($"{Path.GetFileName(compiler)} {string.Join(' ', arguments)}", RunOutputKind.Notice));
-
-        using var process = new Process { StartInfo = StartInfo(compiler, arguments, request.BuildDirectory) };
-
-        if (!TryStart(process, output, $"The compiler '{Path.GetFileName(compiler)}'"))
+        if (!TryStart(process, output, $"The compiler '{Path.GetFileName(compile.FileName)}'"))
         {
             return false;
         }
@@ -116,13 +119,13 @@ internal sealed class ProgramRunner(TimeProvider timeProvider) : IProgramRunner
     }
 
     private async Task<int?> ExecuteAsync(
+        Invocation run,
         RunRequest request,
-        string programPath,
         Action<RunOutputLine> output,
         ChannelReader<string> input,
         CancellationToken cancellationToken)
     {
-        using var process = new Process { StartInfo = StartInfo(programPath, [], request.BuildDirectory) };
+        using var process = new Process { StartInfo = StartInfo(run, request.BuildDirectory) };
 
         if (!TryStart(process, output, "The compiled program"))
         {
@@ -252,11 +255,11 @@ internal sealed class ProgramRunner(TimeProvider timeProvider) : IProgramRunner
         }
     }
 
-    private static ProcessStartInfo StartInfo(string fileName, IEnumerable<string> arguments, string workingDirectory)
+    private static ProcessStartInfo StartInfo(Invocation invocation, string workingDirectory)
     {
         var startInfo = new ProcessStartInfo
         {
-            FileName = fileName,
+            FileName = invocation.FileName,
             WorkingDirectory = workingDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -267,7 +270,7 @@ internal sealed class ProgramRunner(TimeProvider timeProvider) : IProgramRunner
             StandardErrorEncoding = Utf8
         };
 
-        foreach (string argument in arguments)
+        foreach (string argument in invocation.Arguments)
         {
             startInfo.ArgumentList.Add(argument);
         }

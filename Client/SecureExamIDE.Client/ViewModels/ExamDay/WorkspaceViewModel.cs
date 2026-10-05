@@ -39,6 +39,7 @@ public sealed partial class WorkspaceViewModel(
     ISubmissionService submissions,
     IToolchainService toolchains,
     IProgramRunner runner,
+    ILanguageDrivers drivers,
     IPdfRenderer pdfRenderer,
     IExamLockdown lockdown,
     IOptions<LockdownOptions> lockdownOptions,
@@ -208,6 +209,22 @@ public sealed partial class WorkspaceViewModel(
 
         _files = store.Open(exam.ExamId, sitting.SittingId, unlocked.WorkspaceKey);
         _activity = activityLogs.Open(exam.ExamId, sitting.SittingId, unlocked.HandInKey);
+
+        // A log that already has events means this sitting was opened before and not finished: the
+        // application crashed, was stopped, or the computer was restarted. The work comes back, since
+        // a flat battery must not cost a student the exam, but the professor is told it happened and
+        // how the earlier session ended, because nothing was recorded while the exam was closed.
+        IReadOnlyList<ActivityEvent> earlier = _activity.Read();
+
+        if (earlier.Count > 0)
+        {
+            _activity.Write(
+                ActivityKind.ExamReopened,
+                earlier[^1].Kind == ActivityKind.ExamClosed
+                    ? "The earlier session was closed by the application."
+                    : "The earlier session ended without closing: the application was stopped or crashed.");
+        }
+
         _activity.Write(ActivityKind.ExamOpened, exam.Title);
 
         List<string> unreadable = [];
@@ -539,7 +556,9 @@ public sealed partial class WorkspaceViewModel(
 
         try
         {
-            Toolchain? toolchain = await PrepareToolchainAsync(_running.Token);
+            List<SourceFile> sources = [.. Files.Select(file => new SourceFile(file.Name, file.Document.Text))];
+
+            Toolchain? toolchain = await PrepareToolchainAsync(sources, _running.Token);
 
             if (toolchain is null)
             {
@@ -549,9 +568,12 @@ public sealed partial class WorkspaceViewModel(
             var request = new RunRequest(
                 toolchain,
                 store.BuildDirectory(_exam.ExamId, _sitting.SittingId),
-                [.. Files.Select(file => new SourceFile(file.Name, file.Document.Text))],
+                sources,
                 ProcessorTimeLimit,
-                MaxOutputBytes);
+                MaxOutputBytes,
+                // The tab the student is on is the program they mean by Run, which is what lets two
+                // programs with a main of their own live in one workspace.
+                ActiveFile?.Name);
 
             _activity?.Write(ActivityKind.RunStarted, string.Join(", ", request.Sources.Select(source => source.Name)));
 
@@ -620,7 +642,9 @@ public sealed partial class WorkspaceViewModel(
     }
 
     // Unpacked on the first run rather than when the workspace opens, so opening the exam is instant.
-    private async Task<Toolchain?> PrepareToolchainAsync(CancellationToken cancellationToken)
+    private async Task<Toolchain?> PrepareToolchainAsync(
+        IReadOnlyList<SourceFile> sources,
+        CancellationToken cancellationToken)
     {
         if (_toolchains is null)
         {
@@ -638,7 +662,15 @@ public sealed partial class WorkspaceViewModel(
             _toolchains = prepared.Value;
         }
 
-        Toolchain? toolchain = _toolchains.FirstOrDefault(candidate => candidate.CanCompileC || candidate.CanCompileCpp);
+        // The toolchain that can build what is on screen, which is what makes a second language a
+        // matter of the exam carrying a second toolchain. Failing that, any toolchain with something
+        // runnable in it, so the runner can say precisely what is missing rather than the screen
+        // guessing - an exam with gcc but no g++ and a C++ file on screen is the case that matters.
+        ILanguageDriver? driver = drivers.ForSources(sources);
+
+        Toolchain? toolchain =
+            _toolchains.FirstOrDefault(candidate => driver?.CanBuildWith(candidate, sources) == true)
+            ?? _toolchains.FirstOrDefault(candidate => candidate.Programs.Count > 0);
 
         if (toolchain is null)
         {

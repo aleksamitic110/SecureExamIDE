@@ -33,18 +33,44 @@ internal static class DemoContent
 
     // A toolchain the way a professor would attach one: an archive with the compilers in bin/.
     // The padding is only there to make the download take a moment, as a real one would.
+    //
+    // The compilers are launchers that forward to whatever GCC is installed on the computer, rather
+    // than the text files they used to be. A text file is refused by the client - rightly, it is not a
+    // compiler - and the exam then fell back to the machine's own GCC, so the toolchain path could
+    // never actually be shown working. These launchers are what make that path real in a demo without
+    // a hundred-megabyte download. A toolchain that is genuinely offline means attaching a real
+    // MinGW-w64 archive through the professor's screens, which works and is what a defence should use.
     public static byte[] ToolchainArchive(string platform)
     {
         bool windows = platform == "WindowsX64";
 
+        // g++ forwards to g++ and never to gcc: gcc compiles C++ but does not link it, so a C++
+        // solution would fail on std::cout with a page of undefined references.
         return Zip(new Dictionary<string, byte[]>
         {
-            [windows ? "bin/gcc.exe" : "bin/gcc"] = Text($"Not a real compiler. Stands in for GCC on {platform}."),
-            [windows ? "bin/g++.exe" : "bin/g++"] = Text($"Not a real compiler. Stands in for G++ on {platform}."),
-            ["README.txt"] = Text("Demo toolchain created by the SeedDemoData tool."),
+            [windows ? "bin/gcc.cmd" : "bin/gcc"] = Launcher("gcc", windows),
+            [windows ? "bin/g++.cmd" : "bin/g++"] = Launcher("g++", windows),
+            ["README.txt"] = Text(
+                $"""
+                Demo toolchain created by the SeedDemoData tool, for {platform}.
+
+                bin/gcc and bin/g++ are not compilers: they pass their arguments to the compiler
+                installed on this computer. They exist so the whole exam flow, including building and
+                running a solution with the exam's own toolchain, can be demonstrated without
+                downloading a real toolchain first.
+
+                A real exam attaches a real archive - MinGW-w64 on Windows, GCC on Linux - which needs
+                nothing installed on the student's computer.
+                """),
             ["lib/padding.bin"] = Padding(2 * 1024 * 1024)
         });
     }
+
+    // Windows starts a .cmd through CreateProcess as readily as an .exe, and the client looks for both.
+    // On Linux the shebang does it, and the client restores the executable bit a zip cannot carry.
+    private static byte[] Launcher(string program, bool windows) => Text(windows
+        ? $"@echo off\r\n{program} %*\r\n"
+        : $"#!/bin/sh\nexec {program} \"$@\"\n");
 
     public static byte[] HeadersArchive() => Zip(new Dictionary<string, byte[]>
     {

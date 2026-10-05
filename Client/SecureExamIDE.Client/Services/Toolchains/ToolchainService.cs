@@ -17,14 +17,9 @@ internal sealed class ToolchainService(ILocalExamLibrary library) : IToolchainSe
 
         foreach (DownloadedDependency dependency in exam.Dependencies)
         {
+            // Everything is unpacked, a set of course headers as much as a compiler: the student may
+            // well have to include it. What the kind decides is only which programs are looked for.
             ToolchainKind kind = KindOf(dependency.Name);
-
-            if (kind == ToolchainKind.Unknown)
-            {
-                // A library or a set of headers: downloaded and unpacked all the same, but nothing
-                // in it is a compiler, so it is not offered as one.
-                continue;
-            }
 
             string archivePath = library.DependencyPath(exam.ExamId, dependency.FileName);
             string target = Path.Combine(library.ToolsDirectory(exam.ExamId), dependency.DependencyId.ToString("N"));
@@ -33,16 +28,24 @@ internal sealed class ToolchainService(ILocalExamLibrary library) : IToolchainSe
 
             if (!unpacked.IsSuccess)
             {
-                return ApiResult.Failure<IReadOnlyList<Toolchain>>(unpacked.Error);
+                // A compiler that will not unpack has to be said out loud. A library that will not is
+                // not worth stopping the run for: it may not even be an archive, and nothing has to be
+                // unpacked out of it before the student can compile.
+                if (kind != ToolchainKind.Unknown)
+                {
+                    return ApiResult.Failure<IReadOnlyList<Toolchain>>(unpacked.Error);
+                }
+
+                continue;
             }
 
             toolchains.Add(Describe(kind, dependency, target));
         }
 
-        // An exam whose toolchain holds no compiler this computer can actually run - the wrong
+        // An exam whose toolchain holds no program this computer can actually run - the wrong
         // platform's build, or a stand-in - falls back to a compiler installed here, so a student is
         // not left unable to compile. The console says which one is being used.
-        if (!toolchains.Any(toolchain => toolchain.CanCompileC || toolchain.CanCompileCpp) &&
+        if (!toolchains.Any(toolchain => toolchain.Programs.Count > 0) &&
             InstalledCompiler() is { } installed)
         {
             toolchains.Add(installed);
@@ -53,34 +56,61 @@ internal sealed class ToolchainService(ILocalExamLibrary library) : IToolchainSe
 
     private static Toolchain? InstalledCompiler()
     {
-        string? c = OnPath(OperatingSystem.IsWindows() ? "gcc.exe" : "gcc");
-        string? cpp = OnPath(OperatingSystem.IsWindows() ? "g++.exe" : "g++");
+        Dictionary<ToolName, string> found = [];
 
-        return c is null && cpp is null
+        if (OnPath("gcc") is { } c)
+        {
+            found[ToolName.CCompiler] = c;
+        }
+
+        if (OnPath("g++") is { } cpp)
+        {
+            found[ToolName.CppCompiler] = cpp;
+        }
+
+        return found.Count == 0
             ? null
             : new Toolchain(
                 ToolchainKind.Gcc,
                 "Compiler installed on this computer",
                 string.Empty,
-                Path.GetDirectoryName(c ?? cpp!) ?? string.Empty,
-                c,
-                cpp,
+                Path.GetDirectoryName(found.Values.First()) ?? string.Empty,
+                found,
                 IsFromThisComputer: true);
     }
 
-    private static string? OnPath(string fileName) =>
+    // Directory by directory in the order PATH lists them, so the machine's own precedence decides -
+    // and only then does a real binary win over a script launcher.
+    private static string? OnPath(string program) =>
         (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
             .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
-            .Select(directory => Path.Combine(directory, fileName))
+            .SelectMany(directory => FileNamesOf(program).Select(name => Path.Combine(directory, name)))
             .FirstOrDefault(candidate => File.Exists(candidate) && IsRunnable(candidate));
 
-    // The professor names the dependency; the client recognises the kinds it knows how to drive.
+    // The professor names the dependency; the client recognises the kinds it knows how to look inside.
+    // A kind this version cannot yet build with is still recognised and unpacked - what it can be built
+    // with is the language drivers' business, and a toolchain no driver wants is simply never chosen.
     private static ToolchainKind KindOf(string name) =>
-        name.Contains("gcc", StringComparison.OrdinalIgnoreCase) ||
-        name.Contains("mingw", StringComparison.OrdinalIgnoreCase) ||
-        name.Contains("g++", StringComparison.OrdinalIgnoreCase)
-            ? ToolchainKind.Gcc
-            : ToolchainKind.Unknown;
+        Known.FirstOrDefault(known =>
+            known.Names.Any(needle => name.Contains(needle, StringComparison.OrdinalIgnoreCase))).Kind;
+
+    private static readonly (ToolchainKind Kind, string[] Names)[] Known =
+    [
+        (ToolchainKind.Gcc, ["gcc", "mingw", "g++"]),
+        (ToolchainKind.Jdk, ["jdk", "openjdk", "java"]),
+        (ToolchainKind.Python, ["python", "cpython"]),
+        (ToolchainKind.DotnetSdk, ["dotnet", ".net", "sdk"])
+    ];
+
+    // Which programs each kind is made of, and what the client calls them. A new language needs a row
+    // here and a driver that asks for these names; nothing else in the service changes.
+    private static readonly Dictionary<ToolchainKind, (ToolName Tool, string Program)[]> KindPrograms = new()
+    {
+        [ToolchainKind.Gcc] = [(ToolName.CCompiler, "gcc"), (ToolName.CppCompiler, "g++")],
+        [ToolchainKind.Jdk] = [(ToolName.JavaCompiler, "javac"), (ToolName.JavaRuntime, "java")],
+        [ToolchainKind.Python] = [(ToolName.PythonRuntime, "python")],
+        [ToolchainKind.DotnetSdk] = [(ToolName.DotnetSdk, "dotnet")]
+    };
 
     private static async Task<ApiResult> UnpackAsync(
         string archivePath,
@@ -190,13 +220,20 @@ internal sealed class ToolchainService(ILocalExamLibrary library) : IToolchainSe
         }
     }
 
-    private static Toolchain Describe(ToolchainKind kind, DownloadedDependency dependency, string root) => new(
-        kind,
-        dependency.Name,
-        dependency.Version,
-        root,
-        FindProgram(root, OperatingSystem.IsWindows() ? "gcc.exe" : "gcc"),
-        FindProgram(root, OperatingSystem.IsWindows() ? "g++.exe" : "g++"));
+    private static Toolchain Describe(ToolchainKind kind, DownloadedDependency dependency, string root)
+    {
+        Dictionary<ToolName, string> found = [];
+
+        foreach ((ToolName tool, string program) in KindPrograms.GetValueOrDefault(kind, []))
+        {
+            if (FindProgram(root, program) is { } path)
+            {
+                found[tool] = path;
+            }
+        }
+
+        return new Toolchain(kind, dependency.Name, dependency.Version, root, found);
+    }
 
     // A file with the right name is not yet a compiler: it can be the wrong platform's build, or a
     // stand-in. Asking it for its version settles it before the student presses Run.
@@ -236,10 +273,20 @@ internal sealed class ToolchainService(ILocalExamLibrary library) : IToolchainSe
 
     // Archives put their programs in bin/, but not always at the top: a MinGW archive unpacks into a
     // folder of its own first. Searching for the name is simpler than guessing the layout.
-    private static string? FindProgram(string root, string fileName) =>
+    private static string? FindProgram(string root, string program) =>
         Directory.Exists(root)
-            ? Directory.EnumerateFiles(root, fileName, SearchOption.AllDirectories).FirstOrDefault(IsRunnable)
+            ? FileNamesOf(program)
+                .SelectMany(name => Directory.EnumerateFiles(root, name, SearchOption.AllDirectories))
+                .FirstOrDefault(IsRunnable)
             : null;
+
+    // On Windows a toolchain may ship a script launcher rather than the binary itself - a JDK and the
+    // .NET SDK both do - and CreateProcess starts a .cmd as readily as an .exe. A real binary is
+    // preferred where both are present, which is why the extensions are tried in this order.
+    private static string[] FileNamesOf(string program) =>
+        OperatingSystem.IsWindows()
+            ? [program + ".exe", program + ".cmd", program + ".bat"]
+            : [program];
 
     private static readonly TimeSpan VersionCheckTimeout = TimeSpan.FromSeconds(10);
 }

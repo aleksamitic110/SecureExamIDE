@@ -1,6 +1,4 @@
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
-using SecureExamIDE.Client.Services.Lockdown;
 using SecureExamIDE.Client.Services.Api;
 using SecureExamIDE.Client.Services.Exams;
 using SecureExamIDE.Client.Services.Navigation;
@@ -26,7 +24,7 @@ public sealed class UnlockSittingViewModelTests
     private readonly IWorkspaceStore _workspace = Substitute.For<IWorkspaceStore>();
     private readonly FakeTimeProvider _time = new(Now);
 
-    private UnlockSittingViewModel CreatePage(bool testingBuild = false)
+    private UnlockSittingViewModel CreatePage()
     {
         _time.SetLocalTimeZone(TimeZoneInfo.Utc);
         _library.PackagePath(Exam.ExamId, Sitting.SittingId).Returns("/exams/p.bin");
@@ -37,7 +35,6 @@ public sealed class UnlockSittingViewModelTests
             _unlocker,
             _library,
             _workspace,
-            Options.Create(new LockdownOptions { AllowEmergencyExit = testingBuild }),
             _time);
         page.Initialize(Exam, Sitting);
 
@@ -99,28 +96,6 @@ public sealed class UnlockSittingViewModelTests
         page.CanEnterCode.ShouldBeFalse();
         page.Status.ShouldBe("You have finished this sitting. It cannot be opened again.");
         await _unlocker.DidNotReceiveWithAnyArgs().UnlockAsync(default!, default!, default!, default!, default);
-    }
-
-    // The same switch that provides the escape hatch: testing an exam must not cost a fresh sitting.
-    [Fact]
-    public async Task Unlock_Should_OpenAFinishedSittingAgain_InATestingBuild()
-    {
-        // Arrange
-        using var unlocked = new UnlockedExam([new ExamTaskFile("task.txt", [65])], new byte[32], new byte[32]);
-        _workspace.IsFinished(Exam.ExamId, Sitting.SittingId).Returns(true);
-        _unlocker.UnlockAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(ApiResult.Success(unlocked));
-
-        UnlockSittingViewModel page = CreatePage(testingBuild: true);
-        page.Code = "B34K-X088-D12W-75Y6-MJQX";
-
-        // Act
-        await page.UnlockCommand.ExecuteAsync(null);
-
-        // Assert
-        page.CanEnterCode.ShouldBeTrue();
-        page.Status.ShouldBe("You finished this sitting. Testing build: the code opens it again anyway.");
-        _navigation.Received(1).NavigateTo(Arg.Any<Action<WorkspaceViewModel>?>());
     }
 
     [Fact]

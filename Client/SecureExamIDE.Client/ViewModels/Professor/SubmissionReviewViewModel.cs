@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using SecureExamIDE.Client.Formatting;
 using SecureExamIDE.Client.Services.ActivityLog;
 using SecureExamIDE.Client.Services.Api;
 using SecureExamIDE.Client.Services.Files;
@@ -37,7 +38,7 @@ public sealed partial class SubmissionReviewViewModel(
 
     public ObservableCollection<ReviewedFileItem> Files { get; } = [];
 
-    public ObservableCollection<ActivityEvent> ActivityEvents { get; } = [];
+    public ObservableCollection<ActivityEventItem> ActivityEvents { get; } = [];
 
     public void Initialize(Guid sittingId, string examTitle, SubmissionItem submission, OpenedSubmission opened)
     {
@@ -58,7 +59,7 @@ public sealed partial class SubmissionReviewViewModel(
 
         foreach (ActivityEvent recorded in opened.ActivityLog.Events)
         {
-            ActivityEvents.Add(recorded);
+            ActivityEvents.Add(new ActivityEventItem(recorded));
         }
     }
 
@@ -75,6 +76,30 @@ public sealed partial class SubmissionReviewViewModel(
     public string EvidenceNote => DescribeEvidence();
 
     public bool IsActivityLogComplete => _opened?.ActivityLog.IsComplete != false;
+
+    public bool HasSuspiciousEvents => ActivityEvents.Any(recorded => recorded.IsSuspicious);
+
+    // Counted up front, because the thing a professor wants to know first is whether this log is worth
+    // reading at all. Every count is stated even when it is zero, so a count is never mistaken for
+    // another kind.
+    public string SuspiciousSummary
+    {
+        get
+        {
+            if (!HasSuspiciousEvents)
+            {
+                return string.Empty;
+            }
+
+            int pastes = ActivityEvents.Count(recorded => recorded.Kind == nameof(ActivityKind.OutsideContentBlocked));
+            int leaves = ActivityEvents.Count(recorded => recorded.Kind == nameof(ActivityKind.ExamWindowLeft));
+            int reopenings = ActivityEvents.Count(recorded => recorded.Kind == nameof(ActivityKind.ExamReopened));
+
+            return string.Create(
+                CultureInfo.CurrentCulture,
+                $"Worth a look: {Plural.Format(pastes, "blocked paste")}, {Plural.Format(leaves, "window leave")}, {Plural.Format(reopenings, "reopening")}.");
+        }
+    }
 
     public string ActivityLogWarning => _opened is null || _opened.ActivityLog.IsComplete
         ? string.Empty
@@ -142,12 +167,22 @@ public sealed partial class SubmissionReviewViewModel(
 
         text.AppendLine(CultureInfo.InvariantCulture, $"{Student} - {_examTitle}");
         text.AppendLine(EvidenceNote);
+
+        if (HasSuspiciousEvents)
+        {
+            text.AppendLine(SuspiciousSummary);
+            text.AppendLine("Those lines are marked with ! below.");
+        }
+
         text.AppendLine();
 
-        foreach (ActivityEvent recorded in ActivityEvents)
+        // The kind is written as the log recorded it, and the marker is the only thing added: this file
+        // is the half of the evidence that leaves the application, so it stays comparable between
+        // students and between sittings.
+        foreach (ActivityEventItem recorded in ActivityEvents)
         {
             text.AppendLine(CultureInfo.InvariantCulture,
-                $"{recorded.Sequence,4}  {recorded.At.ToLocalTime():yyyy-MM-dd HH:mm:ss}  {recorded.Kind}  {recorded.Detail}");
+                $"{(recorded.IsSuspicious ? "!" : " ")} {recorded.Sequence,4}  {recorded.Stamp}  {recorded.Kind}  {recorded.Detail}");
         }
 
         if (!IsActivityLogComplete)

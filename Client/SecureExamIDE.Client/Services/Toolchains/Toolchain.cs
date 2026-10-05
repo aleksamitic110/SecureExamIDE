@@ -5,8 +5,34 @@ namespace SecureExamIDE.Client.Services.Toolchains;
 // looking inside the unpacked folder.
 public enum ToolchainKind
 {
+    // A library or a set of headers: unpacked like anything else, but nothing in it compiles.
     Unknown,
-    Gcc
+
+    Gcc,
+
+    Jdk,
+
+    Python,
+
+    DotnetSdk
+}
+
+// One program inside a toolchain, asked for by name rather than by a field of its own. A GCC build
+// carries two compilers, a JDK a compiler and a runtime, a .NET SDK one program that does both - so
+// which programs a toolchain holds is data, and a new kind needs no new field here.
+public enum ToolName
+{
+    CCompiler,
+
+    CppCompiler,
+
+    JavaCompiler,
+
+    JavaRuntime,
+
+    PythonRuntime,
+
+    DotnetSdk
 }
 
 // A toolchain unpacked on this computer and ready to use.
@@ -15,13 +41,14 @@ public sealed record Toolchain(
     string Name,
     string Version,
     string RootDirectory,
-    string? CCompilerPath,
-    string? CppCompilerPath,
+    // Only the programs actually found and proven to start. A kind the client recognises but whose
+    // archive turned out to hold nothing runnable has an empty map, so it is never chosen to build with.
+    IReadOnlyDictionary<ToolName, string> Programs,
     // True for a compiler found on this computer rather than downloaded with the exam. The console
     // says so, because it is not the compiler the professor chose.
     bool IsFromThisComputer = false)
 {
-    public bool CanCompileC => CCompilerPath is not null;
+    public string? Program(ToolName tool) => Programs.GetValueOrDefault(tool);
 
-    public bool CanCompileCpp => CppCompilerPath is not null;
+    public bool Has(ToolName tool) => Programs.ContainsKey(tool);
 }

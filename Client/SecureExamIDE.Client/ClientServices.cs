@@ -45,8 +45,8 @@ internal static class ClientServices
         services.Configure<ApiOptions>(configuration.GetSection("Api"));
         services.Configure<LockdownOptions>(configuration.GetSection("Lockdown"));
 #if DEBUG
-        // A development build always has the escape hatch and can reopen a finished sitting, whatever
-        // configuration says. A Release build takes it from configuration only.
+        // A development build always has the escape hatch, whatever configuration says. A Release
+        // build takes it from configuration only.
         services.PostConfigure<LockdownOptions>(options => options.AllowEmergencyExit = true);
 #endif
 
@@ -77,6 +77,11 @@ internal static class ClientServices
         services.AddSingleton<IReviewKeyCache, ReviewKeyCache>();
         services.AddSingleton<IToolchainService, ToolchainService>();
         services.AddSingleton<IProgramRunner, ProgramRunner>();
+
+        // One driver per language the workspace can build. Adding Java, Python or C# is a driver here
+        // and a row in the toolchain service's name table; the runner itself does not change.
+        services.AddSingleton<ILanguageDriver, GccDriver>();
+        services.AddSingleton<ILanguageDrivers, LanguageDrivers>();
         services.AddSingleton<IPdfRenderer, PdfRenderer>();
         services.AddSingleton<WindowExamLockdown>();
         services.AddSingleton<IExamLockdown>(provider => provider.GetRequiredService<WindowExamLockdown>());

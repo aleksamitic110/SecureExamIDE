@@ -9,7 +9,10 @@ public sealed record RunRequest(
     string BuildDirectory,
     IReadOnlyList<SourceFile> Sources,
     TimeSpan ProcessorTimeLimit,
-    long MaxOutputBytes);
+    long MaxOutputBytes,
+    // The file the student is looking at, which is the program Run means when the workspace holds more
+    // than one. Null falls back to whichever file defines an entry point.
+    string? EntryName = null);
 
 // A plain copy of a workspace file. The files are encrypted at rest, so this is the only moment they
 // exist as text on disk - in the build folder, which is deleted when the run ends.

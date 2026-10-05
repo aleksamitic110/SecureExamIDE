@@ -15,7 +15,25 @@ public enum ActivityKind
     RunFinished,
     OutsideContentBlocked,
     ExamWindowLeft,
-    ExamFinished
+    ExamFinished,
+
+    // The exam was opened again after it had already been opened once: the application was closed or
+    // stopped in the middle of a sitting, and what happened in between was not recorded.
+    ExamReopened
 }
 
 public sealed record ActivityEvent(int Sequence, DateTimeOffset At, ActivityKind Kind, string? Detail);
+
+// Which kinds suggest a student tried to get round the exam rather than simply work in it: content was
+// brought in from outside and blocked, the exam window was left, or the application was closed in the
+// middle of the sitting and opened again. Everything else - files, saves, runs, opening and
+// finishing - is ordinary work.
+//
+// The rule lives beside the kinds themselves so the professor's screen and the exported log cannot
+// drift apart on what counts as worth a second look. Neither is proof of anything: a window can be
+// left by a notification stealing focus, which is exactly why a professor is shown them to judge.
+public static class ActivityKinds
+{
+    public static bool SuggestsCheating(this ActivityKind kind) =>
+        kind is ActivityKind.OutsideContentBlocked or ActivityKind.ExamWindowLeft or ActivityKind.ExamReopened;
+}

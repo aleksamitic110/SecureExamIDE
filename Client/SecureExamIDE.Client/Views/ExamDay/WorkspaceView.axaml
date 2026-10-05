@@ -31,6 +31,13 @@
     <Style Selector="Border.tab.active">
       <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundBaseLowBrush}" />
     </Style>
+    <!-- No button in the exam takes the keyboard focus. A focused button is pressed by Space and
+         Enter, which is how a student typing code can finish the exam without meaning to; this way
+         the keyboard stays with the editor and every button, Finish above all, needs a deliberate
+         click. -->
+    <Style Selector=":is(Button)">
+      <Setter Property="Focusable" Value="False" />
+    </Style>
     <Style Selector="Button.small">
       <Setter Property="Padding" Value="6,0" />
       <Setter Property="MinHeight" Value="22" />
@@ -40,7 +47,8 @@
   </UserControl.Styles>
 
   <Panel>
-    <DockPanel>
+    <!-- Switched off under a confirmation, so nothing typed while it is up reaches the editor. -->
+    <DockPanel IsEnabled="{Binding !IsOverlayShown}">
       <!-- Header: what exam this is, and the only way out. -->
       <Border DockPanel.Dock="Top" Classes="panel" BorderThickness="0,0,0,1" Padding="16,10">
         <Grid ColumnDefinitions="*,Auto,Auto">

@@ -9,7 +9,7 @@ public sealed class ProgramRunnerTests : IDisposable
 {
     private readonly string _buildDirectory = Path.Combine(Path.GetTempPath(), "secureexamide-tests-" + Guid.NewGuid().ToString("N"));
     private readonly ConcurrentQueue<RunOutputLine> _output = new();
-    private readonly ProgramRunner _runner = new(TimeProvider.System);
+    private readonly ProgramRunner _runner = new(TimeProvider.System, new LanguageDrivers([new GccDriver()]));
 
     public void Dispose()
     {
@@ -23,7 +23,24 @@ public sealed class ProgramRunnerTests : IDisposable
         string.Concat(_output.Where(line => kinds.Contains(line.Kind)).Select(line => line.Text));
 
     private static Toolchain Installed() =>
-        new(ToolchainKind.Gcc, "GCC", "local", "/", InstalledCompiler.C, InstalledCompiler.Cpp);
+        Gcc("GCC", "local", "/", InstalledCompiler.C, InstalledCompiler.Cpp);
+
+    private static Toolchain Gcc(string name, string version, string root, string? c, string? cpp)
+    {
+        Dictionary<ToolName, string> programs = [];
+
+        if (c is not null)
+        {
+            programs[ToolName.CCompiler] = c;
+        }
+
+        if (cpp is not null)
+        {
+            programs[ToolName.CppCompiler] = cpp;
+        }
+
+        return new Toolchain(ToolchainKind.Gcc, name, version, root, programs);
+    }
 
     private RunRequest RequestFor(IReadOnlyList<SourceFile> sources, TimeSpan? processorLimit = null) => new(
         Installed(),
@@ -169,7 +186,7 @@ public sealed class ProgramRunnerTests : IDisposable
     public async Task Run_Should_SayWhenTheExamsToolchainHasNoCompiler()
     {
         // Arrange
-        var toolchain = new Toolchain(ToolchainKind.Gcc, "GCC", "14.2.0", "/tools", null, null);
+        Toolchain toolchain = Gcc("GCC", "14.2.0", "/tools", c: null, cpp: null);
         var request = new RunRequest(
             toolchain, _buildDirectory, [new SourceFile("main.c", "int main(void){return 0;}")], TimeSpan.FromSeconds(5), 1000);
 
@@ -191,7 +208,7 @@ public sealed class ProgramRunnerTests : IDisposable
         string notACompiler = Path.Combine(_buildDirectory, "gcc-that-is-not-a-compiler");
         await File.WriteAllTextAsync(notACompiler, "This is a text file pretending to be a compiler.", CancellationToken.None);
 
-        var toolchain = new Toolchain(ToolchainKind.Gcc, "GCC", "14.2.0", _buildDirectory, notACompiler, notACompiler);
+        Toolchain toolchain = Gcc("GCC", "14.2.0", _buildDirectory, notACompiler, notACompiler);
         var request = new RunRequest(
             toolchain, _buildDirectory, [new SourceFile("main.c", "int main(void){return 0;}")], TimeSpan.FromSeconds(5), 1000);
 
@@ -201,6 +218,23 @@ public sealed class ProgramRunnerTests : IDisposable
         // Assert
         result.Compiled.ShouldBeFalse();
         Text(RunOutputKind.Notice).ShouldContain("could not be started");
+    }
+
+    // The command is echoed into the console, so the student can see what was run - and so a standard
+    // creeping back into it would be caught here rather than on a laptop in an exam room.
+    [InstalledCompilerFact]
+    public async Task Run_Should_EchoACommandWithoutALanguageStandard()
+    {
+        // Arrange
+        var request = RequestFor([new SourceFile("main.c", "int main(void){return 0;}")]);
+
+        // Act
+        await RunAsync(request);
+
+        // Assert
+        string notices = Text(RunOutputKind.Notice);
+        notices.ShouldContain("-Wall");
+        notices.ShouldNotContain("-std");
     }
 
     [Fact]
