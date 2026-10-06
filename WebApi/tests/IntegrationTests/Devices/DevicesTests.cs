@@ -132,6 +132,35 @@ public sealed class DevicesTests(IntegrationTestWebAppFactory factory) : BaseInt
         (await IssueDeviceTokenAsync(tokens.DeviceCredential)).EnsureSuccessStatusCode();
     }
 
+    // Revoking has to bite at once. A token minted just before it would otherwise stay good for its
+    // whole lifetime, which is exactly the window a stolen machine needs.
+    [Fact]
+    public async Task RevokeDevice_Should_StopATokenAlreadyIssuedForThatDevice()
+    {
+        // Arrange
+        string email = UniqueEmail();
+        Registration registration = await RegisterStudentAsync(email, deviceName: "Stolen laptop");
+        AccessTokens tokens = await LoginAsync(email, deviceName: "Replacement laptop");
+
+        HttpResponseMessage issued = await IssueDeviceTokenAsync(registration.DeviceCredential);
+        DeviceToken? stolen = await issued.Content.ReadFromJsonAsync<DeviceToken>();
+
+        Authenticate(stolen!.AccessToken);
+        (await HttpClient.GetAsync("exams")).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        // Act
+        Authenticate(tokens.AccessToken);
+        (await HttpClient.DeleteAsync($"devices/{registration.DeviceId}")).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        // Assert
+        Authenticate(stolen.AccessToken);
+        (await HttpClient.GetAsync("exams")).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        // The machine that did the revoking carries on.
+        Authenticate(tokens.AccessToken);
+        (await HttpClient.GetAsync("exams")).StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
     [Fact]
     public async Task RevokeDevice_Should_ReturnConflict_WhenRevokedTwice()
     {

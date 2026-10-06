@@ -1,5 +1,6 @@
 using SecureExamIDE.Client.Services.Api;
 using SecureExamIDE.Client.Services.Session;
+using SecureExamIDE.Client.Services.Toolchains;
 using SecureExamIDE.Client.Services.Uploads;
 
 namespace SecureExamIDE.Client.Services.Exams;
@@ -64,6 +65,13 @@ internal sealed class ExamContentService(
         IProgress<long>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        // An archive the students' application cannot unpack is refused here, before hundreds of
+        // megabytes are uploaded - otherwise it is found out by a student pressing Run in the exam.
+        if (CannotBeUnpacked.Contains(Path.GetExtension(sourcePath)))
+        {
+            return ApiResult.Failure(ToolchainErrors.UnsupportedUpload(Path.GetFileName(sourcePath)));
+        }
+
         ApiResult<string> token = await session.GetAccessTokenAsync(cancellationToken);
 
         if (!token.IsSuccess)
@@ -104,6 +112,11 @@ internal sealed class ExamContentService(
 
         return committed.IsSuccess ? ApiResult.Success() : ApiResult.Failure(committed.Error);
     }
+
+    // The archive formats a toolchain is commonly published in besides the two that can be unpacked.
+    // Anything else is let through: a single header file is a perfectly good dependency.
+    private static readonly HashSet<string> CannotBeUnpacked =
+        new(StringComparer.OrdinalIgnoreCase) { ".7z", ".rar", ".xz", ".bz2", ".zst", ".exe", ".msi" };
 
     // Enough to let a student's client tell a PDF from a text file and an archive from either. The
     // server reads the type back from storage for a dependency, so this is only what is sent.

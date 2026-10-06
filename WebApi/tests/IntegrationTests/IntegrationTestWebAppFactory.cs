@@ -20,7 +20,7 @@ public sealed class IntegrationTestWebAppFactory : WebApplicationFactory<Program
 
     public const string StorageBucket = "exam-packages";
 
-    private const string StorageImage = "minio/minio:latest";
+    private const string StorageImage = "quay.io/minio/minio:latest";
     private const string StorageAccessKey = "minioadmin";
     private const string StorageSecretKey = "minioadmin";
 

@@ -1,6 +1,7 @@
 using SecureExamIDE.Client.Services.Api;
 using SecureExamIDE.Client.Services.Downloads;
 using SecureExamIDE.Client.Services.Session;
+using SecureExamIDE.Client.Services.Toolchains;
 
 namespace SecureExamIDE.Client.Services.Exams;
 
@@ -10,6 +11,7 @@ internal sealed class ExamDownloadService(
     IExamCatalog catalog,
     IFileDownloader downloader,
     ILocalExamLibrary library,
+    IToolchainService toolchains,
     TimeProvider timeProvider) : IExamDownloadService
 {
     public async Task<ApiResult> DownloadSittingAsync(
@@ -51,7 +53,17 @@ internal sealed class ExamDownloadService(
             downloadedDependencies.Add(downloaded.Value);
         }
 
-        await RecordAsync(exam, sitting, downloadedDependencies, cancellationToken);
+        DownloadedExam recorded = await RecordAsync(exam, sitting, downloadedDependencies, cancellationToken);
+
+        // Unpacked now, at home, rather than on the first Run: a real toolchain is hundreds of
+        // megabytes, and the minute it takes should not come out of the exam. The sitting is already
+        // recorded and its archives are intact, so a failure here is not a failed download - the first
+        // Run tries again and says what is wrong.
+        if (downloadedDependencies.Count > 0)
+        {
+            tracker.StartUnpacking();
+            await toolchains.PrepareAsync(recorded, cancellationToken);
+        }
 
         return ApiResult.Success();
     }
@@ -175,7 +187,7 @@ internal sealed class ExamDownloadService(
 
     // Merged with what is already recorded: another sitting of the same exam stays listed, and the
     // dependency list is replaced by the current one.
-    private async Task RecordAsync(
+    private async Task<DownloadedExam> RecordAsync(
         CatalogExam exam,
         ExamSitting sitting,
         IReadOnlyList<DownloadedDependency> dependencies,
@@ -193,17 +205,19 @@ internal sealed class ExamDownloadService(
             downloadedSitting
         ];
 
-        await library.SaveAsync(
-            new DownloadedExam(
-                exam.Id,
-                exam.Title,
-                exam.Subject,
-                exam.Description,
-                $"{exam.ProfessorFirstName} {exam.ProfessorLastName}",
-                [.. sittings.OrderBy(s => s.StartsAt)],
-                dependencies,
-                now),
-            cancellationToken);
+        var recorded = new DownloadedExam(
+            exam.Id,
+            exam.Title,
+            exam.Subject,
+            exam.Description,
+            $"{exam.ProfessorFirstName} {exam.ProfessorLastName}",
+            [.. sittings.OrderBy(s => s.StartsAt)],
+            dependencies,
+            now);
+
+        await library.SaveAsync(recorded, cancellationToken);
+
+        return recorded;
     }
 
     // Turns "bytes of the current file" into progress over the whole sitting.
@@ -229,6 +243,9 @@ internal sealed class ExamDownloadService(
             _bytesBeforeItem += _itemSize;
             _itemSize = 0;
         }
+
+        public void StartUnpacking() => progress?.Report(new ExamDownloadProgress(
+            "Toolchains", itemCount, itemCount, bytesTotal, bytesTotal, IsUnpacking: true));
 
         private void Report(long itemBytes) => progress?.Report(new ExamDownloadProgress(
             _itemName, _itemNumber, itemCount, _bytesBeforeItem + Math.Min(itemBytes, _itemSize), bytesTotal));

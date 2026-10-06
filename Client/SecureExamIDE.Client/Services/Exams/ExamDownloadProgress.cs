@@ -7,4 +7,6 @@ public sealed record ExamDownloadProgress(
     int ItemNumber,
     int ItemCount,
     long BytesDone,
-    long BytesTotal);
+    long BytesTotal,
+    // The files are all here and the toolchains are being unpacked, which has no byte count to show.
+    bool IsUnpacking = false);

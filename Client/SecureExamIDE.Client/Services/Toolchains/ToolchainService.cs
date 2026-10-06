@@ -39,45 +39,62 @@ internal sealed class ToolchainService(ILocalExamLibrary library) : IToolchainSe
                 continue;
             }
 
-            toolchains.Add(Describe(kind, dependency, target));
+            // Looking inside starts each candidate program once to ask its version, so it is kept
+            // off the thread the screen is drawn on.
+            toolchains.Add(await Task.Run(() => Describe(kind, dependency, target), cancellationToken));
         }
 
         // An exam whose toolchain holds no program this computer can actually run - the wrong
-        // platform's build, or a stand-in - falls back to a compiler installed here, so a student is
-        // not left unable to compile. The console says which one is being used.
-        if (!toolchains.Any(toolchain => toolchain.Programs.Count > 0) &&
-            InstalledCompiler() is { } installed)
+        // platform's build, or a stand-in - falls back to what is installed here, so a student is not
+        // left unable to run anything. The console says which one is being used.
+        if (!toolchains.Any(toolchain => toolchain.Programs.Count > 0))
         {
-            toolchains.Add(installed);
+            toolchains.AddRange(await Task.Run(InstalledTools, cancellationToken));
         }
 
         return ApiResult.Success<IReadOnlyList<Toolchain>>(toolchains);
     }
 
-    private static Toolchain? InstalledCompiler()
+    private static List<Toolchain> InstalledTools()
     {
-        Dictionary<ToolName, string> found = [];
+        List<Toolchain> installed = [];
+
+        Dictionary<ToolName, string> compilers = [];
 
         if (OnPath("gcc") is { } c)
         {
-            found[ToolName.CCompiler] = c;
+            compilers[ToolName.CCompiler] = c;
         }
 
         if (OnPath("g++") is { } cpp)
         {
-            found[ToolName.CppCompiler] = cpp;
+            compilers[ToolName.CppCompiler] = cpp;
         }
 
-        return found.Count == 0
-            ? null
-            : new Toolchain(
-                ToolchainKind.Gcc,
-                "Compiler installed on this computer",
-                string.Empty,
-                Path.GetDirectoryName(found.Values.First()) ?? string.Empty,
-                found,
-                IsFromThisComputer: true);
+        if (compilers.Count > 0)
+        {
+            installed.Add(FromThisComputer(ToolchainKind.Gcc, "Compiler installed on this computer", compilers));
+        }
+
+        if ((OnPath("python") ?? OnPath("python3")) is { } python)
+        {
+            installed.Add(FromThisComputer(
+                ToolchainKind.Python,
+                "Python installed on this computer",
+                new Dictionary<ToolName, string> { [ToolName.PythonRuntime] = python }));
+        }
+
+        return installed;
     }
+
+    private static Toolchain FromThisComputer(ToolchainKind kind, string name, Dictionary<ToolName, string> programs) =>
+        new(
+            kind,
+            name,
+            string.Empty,
+            Path.GetDirectoryName(programs.Values.First()) ?? string.Empty,
+            programs,
+            IsFromThisComputer: true);
 
     // Directory by directory in the order PATH lists them, so the machine's own precedence decides -
     // and only then does a real binary win over a script launcher.
@@ -108,7 +125,8 @@ internal sealed class ToolchainService(ILocalExamLibrary library) : IToolchainSe
     {
         [ToolchainKind.Gcc] = [(ToolName.CCompiler, "gcc"), (ToolName.CppCompiler, "g++")],
         [ToolchainKind.Jdk] = [(ToolName.JavaCompiler, "javac"), (ToolName.JavaRuntime, "java")],
-        [ToolchainKind.Python] = [(ToolName.PythonRuntime, "python")],
+        // Tried in this order: the Windows builds name it python, the standalone Linux ones python3.
+        [ToolchainKind.Python] = [(ToolName.PythonRuntime, "python"), (ToolName.PythonRuntime, "python3")],
         [ToolchainKind.DotnetSdk] = [(ToolName.DotnetSdk, "dotnet")]
     };
 
@@ -162,7 +180,7 @@ internal sealed class ToolchainService(ILocalExamLibrary library) : IToolchainSe
         }
         catch (NotSupportedException)
         {
-            return ApiResult.Failure(ToolchainErrors.UnsupportedArchive(dependency.FileName));
+            return ApiResult.Failure(ToolchainErrors.UnsupportedArchive($"{dependency.Name} {dependency.Version}".Trim()));
         }
     }
 
@@ -226,7 +244,7 @@ internal sealed class ToolchainService(ILocalExamLibrary library) : IToolchainSe
 
         foreach ((ToolName tool, string program) in KindPrograms.GetValueOrDefault(kind, []))
         {
-            if (FindProgram(root, program) is { } path)
+            if (!found.ContainsKey(tool) && FindProgram(root, program) is { } path)
             {
                 found[tool] = path;
             }

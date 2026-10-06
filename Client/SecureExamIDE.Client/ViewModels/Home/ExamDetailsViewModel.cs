@@ -197,6 +197,14 @@ public sealed partial class ExamDetailsViewModel(
     private void ShowProgress(ExamDownloadProgress progress)
     {
         ProgressPercent = progress.BytesTotal > 0 ? progress.BytesDone * 100d / progress.BytesTotal : 0;
+
+        if (progress.IsUnpacking)
+        {
+            ProgressText = "Unpacking the toolchains, so nothing has to be unpacked during the exam. This can take a few minutes.";
+
+            return;
+        }
+
         ProgressText = $"Downloading {progress.CurrentItem} ({progress.ItemNumber} of {progress.ItemCount}) · " +
                        $"{ByteSize.Format(progress.BytesDone)} of {ByteSize.Format(progress.BytesTotal)}";
     }

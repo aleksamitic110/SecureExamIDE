@@ -106,6 +106,24 @@ public sealed class ExamContentServiceTests : IDisposable
             Arg.Any<CancellationToken>());
     }
 
+    // Found out at the professor's desk rather than by a student pressing Run in the exam room.
+    [Theory]
+    [InlineData("winlibs-x86_64-gcc-16.2.0.7z")]
+    [InlineData("toolchain.tar.xz")]
+    [InlineData("installer.EXE")]
+    public async Task AddToolchain_Should_RefuseAnArchiveStudentsCannotUnpack_BeforeUploadingIt(string fileName)
+    {
+        // Act
+        ApiResult result = await _service.AddToolchainAsync(
+            ExamId, Path.Combine(Path.GetTempPath(), fileName), "GCC", "16.2.0", DependencyPlatform.WindowsX64);
+
+        // Assert
+        result.Error!.Code.ShouldBe("Toolchains.UnsupportedUpload");
+        result.Error.Message.ShouldContain(fileName);
+        await _api.DidNotReceiveWithAnyArgs().CreateDependencyUploadUrlAsync(Guid.Empty, default!, default);
+        await _uploader.DidNotReceiveWithAnyArgs().UploadAsync(default!, default, default);
+    }
+
     [Fact]
     public async Task AddToolchain_Should_NotCommit_WhenTheUploadFails()
     {

@@ -3,6 +3,7 @@ using SecureExamIDE.Client.Services.Api;
 using SecureExamIDE.Client.Services.Downloads;
 using SecureExamIDE.Client.Services.Exams;
 using SecureExamIDE.Client.Services.Session;
+using SecureExamIDE.Client.Services.Toolchains;
 
 namespace SecureExamIDE.Client.Tests.Exams;
 
@@ -22,6 +23,7 @@ public sealed class ExamDownloadServiceTests : IDisposable
     private readonly ISessionService _session = Substitute.For<ISessionService>();
     private readonly IExamCatalog _catalog = Substitute.For<IExamCatalog>();
     private readonly IFileDownloader _downloader = Substitute.For<IFileDownloader>();
+    private readonly IToolchainService _toolchains = Substitute.For<IToolchainService>();
     private readonly LocalExamLibrary _library;
 
     public ExamDownloadServiceTests()
@@ -59,7 +61,7 @@ public sealed class ExamDownloadServiceTests : IDisposable
     }
 
     private ExamDownloadService CreateService() =>
-        new(_api, _session, _catalog, _downloader, _library, new FakeTimeProvider(DateTimeOffset.UtcNow));
+        new(_api, _session, _catalog, _downloader, _library, _toolchains, new FakeTimeProvider(DateTimeOffset.UtcNow));
 
     [Fact]
     public async Task Download_Should_FetchPackageHeaderAndDependencies_AndRecordTheSitting()
@@ -89,6 +91,55 @@ public sealed class ExamDownloadServiceTests : IDisposable
 
         reports[^1].ItemNumber.ShouldBe(3);
         reports[^1].BytesTotal.ShouldBe(5000);
+    }
+
+    // A real toolchain takes minutes to unpack, and those minutes belong at home, not in the exam.
+    [Fact]
+    public async Task Download_Should_UnpackTheToolchains_OnceEverythingIsOnDisk()
+    {
+        // Arrange
+        List<ExamDownloadProgress> reports = [];
+
+        // Act
+        ApiResult result = await CreateService().DownloadSittingAsync(Exam, Sitting, new InlineProgress(reports.Add));
+
+        // Assert
+        result.IsSuccess.ShouldBeTrue();
+        await _toolchains.Received(1).PrepareAsync(
+            Arg.Is<DownloadedExam>(exam => exam.ExamId == Exam.Id && exam.Dependencies.Count == 1),
+            Arg.Any<CancellationToken>());
+        reports[^1].IsUnpacking.ShouldBeTrue();
+    }
+
+    // The archives are intact and the sitting is recorded; the first Run unpacks again and says why.
+    [Fact]
+    public async Task Download_Should_StillSucceed_WhenAToolchainWillNotUnpack()
+    {
+        // Arrange
+        _toolchains.PrepareAsync(Arg.Any<DownloadedExam>(), Arg.Any<CancellationToken>())
+            .Returns(ApiResult.Failure<IReadOnlyList<Toolchain>>(ToolchainErrors.UnsupportedArchive("gcc.7z")));
+
+        // Act
+        ApiResult result = await CreateService().DownloadSittingAsync(Exam, Sitting);
+
+        // Assert
+        result.IsSuccess.ShouldBeTrue();
+        (await _library.LoadAsync(Exam.Id)).ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task Download_Should_NotUnpackAnything_WhenAFileFails()
+    {
+        // Arrange
+        _downloader.DownloadAsync(
+                Arg.Is<DownloadRequest>(r => r.Url.AbsolutePath == "/gcc"), Arg.Any<IProgress<long>?>(), Arg.Any<CancellationToken>())
+            .Returns(ApiResult.Failure(new ApiError(0, "Download.Interrupted", "Interrupted.", [])));
+
+        // Act
+        await CreateService().DownloadSittingAsync(Exam, Sitting);
+
+        // Assert
+        await _toolchains.DidNotReceiveWithAnyArgs().PrepareAsync(default!, default);
     }
 
     // A second sitting of the same exam needs the same toolchains; they are not pulled twice.

@@ -62,16 +62,63 @@ public sealed partial class SittingsViewModel(
     private bool _isScheduling;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StartDay))]
     private DateTimeOffset? _startDate;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StartHour), nameof(StartMinute))]
     private TimeSpan _startTime;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EndDay))]
     private DateTimeOffset? _endDate;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EndHour), nameof(EndMinute))]
     private TimeSpan _endTime;
+
+    // What the form's controls bind to: a calendar for the day and two short lists for the time. The
+    // spinning date and time pickers drew their numbers over each other in a narrow form, and a
+    // sitting is scheduled to the five minutes at most.
+    public IReadOnlyList<int> Hours { get; } = [.. Enumerable.Range(0, 24)];
+
+    public IReadOnlyList<int> Minutes { get; } = [.. Enumerable.Range(0, 12).Select(step => step * 5)];
+
+    public DateTime? StartDay
+    {
+        get => StartDate?.Date;
+        set => StartDate = AtLocalMidnight(value);
+    }
+
+    public int StartHour
+    {
+        get => StartTime.Hours;
+        set => StartTime = new TimeSpan(value, StartTime.Minutes, 0);
+    }
+
+    public int StartMinute
+    {
+        get => StartTime.Minutes;
+        set => StartTime = new TimeSpan(StartTime.Hours, value, 0);
+    }
+
+    public DateTime? EndDay
+    {
+        get => EndDate?.Date;
+        set => EndDate = AtLocalMidnight(value);
+    }
+
+    public int EndHour
+    {
+        get => EndTime.Hours;
+        set => EndTime = new TimeSpan(value, EndTime.Minutes, 0);
+    }
+
+    public int EndMinute
+    {
+        get => EndTime.Minutes;
+        set => EndTime = new TimeSpan(EndTime.Hours, value, 0);
+    }
 
     [ObservableProperty]
     private string? _scheduleError;
@@ -320,6 +367,20 @@ public sealed partial class SittingsViewModel(
             IsLoading = false;
             OnPropertyChanged(nameof(IsEmpty));
         }
+    }
+
+    // The offset is the one in force on that day, so a sitting scheduled across a clock change is
+    // still at the hour the professor chose.
+    private DateTimeOffset? AtLocalMidnight(DateTime? day)
+    {
+        if (day is null)
+        {
+            return null;
+        }
+
+        DateTime midnight = DateTime.SpecifyKind(day.Value.Date, DateTimeKind.Unspecified);
+
+        return new DateTimeOffset(midnight, timeProvider.LocalTimeZone.GetUtcOffset(midnight));
     }
 
     private static DateTimeOffset? Combine(DateTimeOffset? date, TimeSpan time) =>

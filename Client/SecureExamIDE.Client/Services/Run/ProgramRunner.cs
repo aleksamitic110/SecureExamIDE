@@ -18,12 +18,12 @@ internal sealed class ProgramRunner(TimeProvider timeProvider, ILanguageDrivers 
 
         try
         {
-            ILanguageDriver? driver = drivers.ForSources(request.Sources);
+            ILanguageDriver? driver = drivers.ForSources(request.Sources, request.EntryName);
 
             if (driver is null)
             {
                 output(new RunOutputLine(
-                    $"There is nothing to compile: no {drivers.FileKinds} file in the workspace.",
+                    $"There is nothing to compile or run: no {drivers.FileKinds} file in the workspace.",
                     RunOutputKind.Notice));
 
                 return new RunResult(Compiled: false, ExitCode: null, timeProvider.GetElapsedTime(startedAt));
@@ -32,7 +32,7 @@ internal sealed class ProgramRunner(TimeProvider timeProvider, ILanguageDrivers 
             if (!driver.CanBuildWith(request.Toolchain, request.Sources))
             {
                 output(new RunOutputLine(
-                    $"The exam's toolchain '{request.Toolchain.Name}' has no {driver.LanguageOf(request.Sources)} compiler on this computer.",
+                    $"The exam's toolchain '{request.Toolchain.Name}' has no {driver.LanguageOf(request.Sources)} {(driver.IsCompiled ? "compiler" : "interpreter")} on this computer.",
                     RunOutputKind.Notice));
 
                 return new RunResult(Compiled: false, ExitCode: null, timeProvider.GetElapsedTime(startedAt));
@@ -45,7 +45,8 @@ internal sealed class ProgramRunner(TimeProvider timeProvider, ILanguageDrivers 
                 request.BuildDirectory,
                 request.Sources,
                 Path.Combine(request.BuildDirectory, OperatingSystem.IsWindows() ? "program.exe" : "program"),
-                request.EntryName);
+                request.EntryName,
+                request.Libraries);
 
             // No compile step at all is what an interpreted language returns; there is simply nothing
             // to do before running.
@@ -95,7 +96,7 @@ internal sealed class ProgramRunner(TimeProvider timeProvider, ILanguageDrivers 
             $"{Path.GetFileName(compile.FileName)} {string.Join(' ', compile.Arguments)}",
             RunOutputKind.Notice));
 
-        using var process = new Process { StartInfo = StartInfo(compile, request.BuildDirectory) };
+        using var process = new Process { StartInfo = StartInfo(compile, request) };
 
         if (!TryStart(process, output, $"The compiler '{Path.GetFileName(compile.FileName)}'"))
         {
@@ -125,9 +126,9 @@ internal sealed class ProgramRunner(TimeProvider timeProvider, ILanguageDrivers 
         ChannelReader<string> input,
         CancellationToken cancellationToken)
     {
-        using var process = new Process { StartInfo = StartInfo(run, request.BuildDirectory) };
+        using var process = new Process { StartInfo = StartInfo(run, request) };
 
-        if (!TryStart(process, output, "The compiled program"))
+        if (!TryStart(process, output, "The program"))
         {
             return null;
         }
@@ -255,12 +256,12 @@ internal sealed class ProgramRunner(TimeProvider timeProvider, ILanguageDrivers 
         }
     }
 
-    private static ProcessStartInfo StartInfo(Invocation invocation, string workingDirectory)
+    private static ProcessStartInfo StartInfo(Invocation invocation, RunRequest request)
     {
         var startInfo = new ProcessStartInfo
         {
             FileName = invocation.FileName,
-            WorkingDirectory = workingDirectory,
+            WorkingDirectory = request.BuildDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             RedirectStandardInput = true,
@@ -273,6 +274,25 @@ internal sealed class ProgramRunner(TimeProvider timeProvider, ILanguageDrivers 
         foreach (string argument in invocation.Arguments)
         {
             startInfo.ArgumentList.Add(argument);
+        }
+
+        // The toolchain's own folders go first on PATH, for the compiler and for the program it built.
+        // A program built by MinGW's g++ loads libstdc++ and its companions from the compiler's bin
+        // folder; without it there the program does not start at all, and says nothing about why.
+        string[] toolFolders =
+        [
+            .. request.Toolchain.Programs.Values
+                .Select(Path.GetDirectoryName)
+                .OfType<string>()
+                .Where(folder => folder.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+        ];
+
+        if (toolFolders.Length > 0)
+        {
+            startInfo.Environment["PATH"] = string.Join(
+                Path.PathSeparator,
+                toolFolders.Append(Environment.GetEnvironmentVariable("PATH") ?? string.Empty));
         }
 
         return startInfo;

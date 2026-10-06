@@ -9,9 +9,11 @@ internal sealed partial class GccDriver : ILanguageDriver
 {
     public ToolchainKind RequiredToolchain => ToolchainKind.Gcc;
 
-    public string FileKinds => ".c or .cpp";
+    public string FileKinds => ".c, .cpp";
 
-    public bool Claims(IReadOnlyList<SourceFile> sources) => sources.Any(IsCompiled);
+    public bool IsCompiled => true;
+
+    public bool Claims(IReadOnlyList<SourceFile> sources) => sources.Any(IsSource);
 
     public bool CanBuildWith(Toolchain toolchain, IReadOnlyList<SourceFile> sources) =>
         toolchain.Has(CompilerFor(sources));
@@ -25,7 +27,7 @@ internal sealed partial class GccDriver : ILanguageDriver
     // program split across several files still builds.
     public static IReadOnlyList<SourceFile> SourcesFor(IReadOnlyList<SourceFile> sources, string? entryName)
     {
-        List<SourceFile> compiled = [.. sources.Where(IsCompiled)];
+        List<SourceFile> compiled = [.. sources.Where(IsSource)];
 
         SourceFile? entry =
             compiled.Find(source => string.Equals(source.Name, entryName, StringComparison.OrdinalIgnoreCase))
@@ -48,6 +50,20 @@ internal sealed partial class GccDriver : ILanguageDriver
 
         List<string> arguments = ["-Wall", "-O0", "-g"];
 
+        // Whatever else the exam shipped is put where the compiler looks, or a header the professor
+        // attached could be downloaded, unpacked and still never be found by #include.
+        foreach (string directory in LibraryDirectories(context.Libraries, "include", withRoot: true))
+        {
+            arguments.Add("-I");
+            arguments.Add(directory);
+        }
+
+        foreach (string directory in LibraryDirectories(context.Libraries, "lib", withRoot: false))
+        {
+            arguments.Add("-L");
+            arguments.Add(directory);
+        }
+
         arguments.AddRange(building.Select(source => Path.GetFileName(source.Name)));
         arguments.Add("-o");
         arguments.Add(context.ProgramPath);
@@ -60,6 +76,32 @@ internal sealed partial class GccDriver : ILanguageDriver
 
     public Invocation Run(BuildContext context) => new(context.ProgramPath, []);
 
+    // An archive may hold its headers at the top or in a folder of its own first, as a toolchain does,
+    // so the folder is looked for by name at any depth. The root is offered too, for an archive that
+    // is nothing but headers.
+    private static IEnumerable<string> LibraryDirectories(IReadOnlyList<Toolchain>? libraries, string folder, bool withRoot)
+    {
+        foreach (Toolchain library in libraries ?? [])
+        {
+            if (!Directory.Exists(library.RootDirectory))
+            {
+                continue;
+            }
+
+            if (withRoot)
+            {
+                yield return library.RootDirectory;
+            }
+
+            foreach (string found in Directory
+                .EnumerateDirectories(library.RootDirectory, folder, SearchOption.AllDirectories)
+                .Order(StringComparer.Ordinal))
+            {
+                yield return found;
+            }
+        }
+    }
+
     // One C++ file makes it a C++ build: g++ compiles C as well, but gcc does not link a C++ program.
     private static ToolName CompilerFor(IReadOnlyList<SourceFile> sources) =>
         IsCpp(sources) ? ToolName.CppCompiler : ToolName.CCompiler;
@@ -67,7 +109,7 @@ internal sealed partial class GccDriver : ILanguageDriver
     private static bool IsCpp(IEnumerable<SourceFile> sources) =>
         sources.Any(source => CppExtensions.Contains(Path.GetExtension(source.Name)));
 
-    private static bool IsCompiled(SourceFile source) =>
+    private static bool IsSource(SourceFile source) =>
         CppExtensions.Contains(Path.GetExtension(source.Name)) ||
         string.Equals(Path.GetExtension(source.Name), ".c", StringComparison.OrdinalIgnoreCase);
 

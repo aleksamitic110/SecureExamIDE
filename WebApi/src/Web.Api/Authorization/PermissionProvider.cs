@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Web.Api.Database;
+using Web.Api.Features.Devices;
 using Web.Api.Features.Users;
 
 namespace Web.Api.Authorization;
@@ -9,8 +10,17 @@ namespace Web.Api.Authorization;
 // the domain, so a database-driven mapping would add joins and migrations without adding freedom.
 internal sealed class PermissionProvider(ApplicationDbContext context)
 {
-    public async Task<HashSet<string>> GetForUserIdAsync(Guid userId)
+    public async Task<HashSet<string>> GetForUserIdAsync(Guid userId, Guid? deviceId = null)
     {
+        // A device token is only as good as the credential it was minted from. Without this check a
+        // token issued a moment before its machine was revoked kept working until it expired, which
+        // is a quarter of an hour in which a stolen laptop could still hand in work. A token from an
+        // ordinary login names no device and is not affected.
+        if (deviceId is { } id && !await IsUsableDeviceAsync(userId, id))
+        {
+            return [];
+        }
+
         Account? account = await context.Users
             .AsNoTracking()
             .Where(u => u.Id == userId)
@@ -26,6 +36,11 @@ internal sealed class PermissionProvider(ApplicationDbContext context)
 
         return GetForRole(account.Role);
     }
+
+    private Task<bool> IsUsableDeviceAsync(Guid userId, Guid deviceId) =>
+        context.DeviceCredentials
+            .AsNoTracking()
+            .AnyAsync((DeviceCredential d) => d.Id == deviceId && d.UserId == userId && d.RevokedAt == null);
 
     public static HashSet<string> GetForRole(Role role) => role switch
     {

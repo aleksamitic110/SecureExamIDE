@@ -12,7 +12,9 @@ public sealed record RunRequest(
     long MaxOutputBytes,
     // The file the student is looking at, which is the program Run means when the workspace holds more
     // than one. Null falls back to whichever file defines an entry point.
-    string? EntryName = null);
+    string? EntryName = null,
+    // The exam's other unpacked dependencies - headers, libraries - offered to the compiler.
+    IReadOnlyList<Toolchain>? Libraries = null);
 
 // A plain copy of a workspace file. The files are encrypted at rest, so this is the only moment they
 // exist as text on disk - in the build folder, which is deleted when the run ends.

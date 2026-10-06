@@ -9,7 +9,7 @@ public sealed class ProgramRunnerTests : IDisposable
 {
     private readonly string _buildDirectory = Path.Combine(Path.GetTempPath(), "secureexamide-tests-" + Guid.NewGuid().ToString("N"));
     private readonly ConcurrentQueue<RunOutputLine> _output = new();
-    private readonly ProgramRunner _runner = new(TimeProvider.System, new LanguageDrivers([new GccDriver()]));
+    private readonly ProgramRunner _runner = new(TimeProvider.System, new LanguageDrivers([new GccDriver(), new PythonDriver()]));
 
     public void Dispose()
     {
@@ -235,6 +235,158 @@ public sealed class ProgramRunnerTests : IDisposable
         string notices = Text(RunOutputKind.Notice);
         notices.ShouldContain("-Wall");
         notices.ShouldNotContain("-std");
+    }
+
+    // What a real MinGW needs: a program built by its g++ loads libstdc++ from the compiler's own bin
+    // folder, so that folder has to be on PATH for the program as well as for the compiler.
+    [InstalledCompilerFact]
+    public async Task Run_Should_PutTheToolchainsFolderOnThePath_OfTheProgramItRuns()
+    {
+        // Arrange
+        var request = RequestFor([new SourceFile("main.c", """
+            #include <stdio.h>
+            #include <stdlib.h>
+            int main(void) { printf("%s", getenv("PATH")); return 0; }
+            """)]);
+
+        // Act
+        RunResult result = await RunAsync(request);
+
+        // Assert
+        result.ExitCode.ShouldBe(0);
+        Text(RunOutputKind.Output).ShouldStartWith(Path.GetDirectoryName(InstalledCompiler.C)!, Case.Insensitive);
+    }
+
+    // Course headers the professor attached: downloaded, unpacked, and found by #include.
+    [InstalledCompilerFact]
+    public async Task Run_Should_FindAHeaderTheExamShipped()
+    {
+        // Arrange
+        string library = Path.Combine(_buildDirectory + "-library", "coursekit");
+        Directory.CreateDirectory(Path.Combine(library, "include"));
+        await File.WriteAllTextAsync(Path.Combine(library, "include", "course.h"), "#define COURSE_ANSWER 42\n", CancellationToken.None);
+
+        try
+        {
+            var request = new RunRequest(
+                Installed(),
+                _buildDirectory,
+                [new SourceFile("main.c", """
+                    #include <stdio.h>
+                    #include "course.h"
+                    int main(void) { printf("%d", COURSE_ANSWER); return 0; }
+                    """)],
+                TimeSpan.FromSeconds(10),
+                1_000_000,
+                Libraries: [new Toolchain(ToolchainKind.Unknown, "Course headers", "1", Path.GetDirectoryName(library)!, new Dictionary<ToolName, string>())]);
+
+            // Act
+            RunResult result = await RunAsync(request);
+
+            // Assert
+            result.Compiled.ShouldBeTrue();
+            Text(RunOutputKind.Output).ShouldBe("42");
+        }
+        finally
+        {
+            Directory.Delete(_buildDirectory + "-library", recursive: true);
+        }
+    }
+
+    private RunRequest PythonRequest(string? entry, params SourceFile[] sources) => new(
+        new Toolchain(
+            ToolchainKind.Python,
+            "Python",
+            "local",
+            Path.GetDirectoryName(InstalledPython.Path)!,
+            new Dictionary<ToolName, string> { [ToolName.PythonRuntime] = InstalledPython.Path! }),
+        _buildDirectory,
+        sources,
+        TimeSpan.FromSeconds(10),
+        1_000_000,
+        entry);
+
+    // The prompt has to be on screen before the answer is typed, which is what -u is for.
+    [InstalledPythonFact]
+    public async Task Run_Should_RunAPythonProgram_AndShowItsPromptBeforeTheAnswer()
+    {
+        // Arrange
+        RunRequest request = PythonRequest("main.py", new SourceFile("main.py", """
+            name = input("Your name: ")
+            print("Hello, " + name)
+            """));
+
+        Channel<string> input = Channel.CreateUnbounded<string>();
+
+        // Act
+        Task<RunResult> running = RunAsync(request, input.Reader);
+
+        for (int attempt = 0; attempt < 200 && !Text(RunOutputKind.Output).Contains("Your name: ", StringComparison.Ordinal); attempt++)
+        {
+            await Task.Delay(50);
+        }
+
+        string beforeAnswering = Text(RunOutputKind.Output);
+        input.Writer.TryWrite("Aleksa");
+        RunResult result = await running;
+
+        // Assert
+        beforeAnswering.ShouldBe("Your name: ");
+        result.Compiled.ShouldBeTrue();
+        result.ExitCode.ShouldBe(0);
+        Text(RunOutputKind.Output).ShouldContain("Hello, Aleksa");
+        Directory.Exists(_buildDirectory).ShouldBeFalse();
+    }
+
+    [InstalledPythonFact]
+    public async Task Run_Should_LetAPythonProgramImportTheStudentsOtherFile()
+    {
+        // Arrange
+        RunRequest request = PythonRequest(
+            "main.py",
+            new SourceFile("main.py", "import helper\nprint(helper.answer())\n"),
+            new SourceFile("helper.py", "def answer():\n    return 42\n"));
+
+        // Act
+        RunResult result = await RunAsync(request);
+
+        // Assert
+        result.ExitCode.ShouldBe(0);
+        Text(RunOutputKind.Output).Trim().ShouldBe("42");
+    }
+
+    // A C file on screen beside a Python one: the file being looked at is the program Run means.
+    [InstalledPythonFact]
+    public async Task Run_Should_RunTheLanguageOfTheFileOnScreen()
+    {
+        // Arrange
+        RunRequest request = PythonRequest(
+            "hello.py",
+            new SourceFile("main.c", "int main(void){return 0;}"),
+            new SourceFile("hello.py", "print('from python')\n"));
+
+        // Act
+        RunResult result = await RunAsync(request);
+
+        // Assert
+        result.ExitCode.ShouldBe(0);
+        Text(RunOutputKind.Output).ShouldContain("from python");
+    }
+
+    [Fact]
+    public async Task Run_Should_SayWhenTheExamsToolchainHasNoPython()
+    {
+        // Arrange
+        Toolchain toolchain = Gcc("GCC", "14.2.0", "/tools", c: null, cpp: null);
+        var request = new RunRequest(
+            toolchain, _buildDirectory, [new SourceFile("main.py", "print(1)")], TimeSpan.FromSeconds(5), 1000);
+
+        // Act
+        RunResult result = await RunAsync(request);
+
+        // Assert
+        result.Compiled.ShouldBeFalse();
+        Text(RunOutputKind.Notice).ShouldContain("has no Python interpreter");
     }
 
     [Fact]

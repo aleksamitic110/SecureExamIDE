@@ -98,8 +98,7 @@ public sealed class ToolchainServiceTests : IDisposable
         ApiResult<IReadOnlyList<Toolchain>> result = await _service.PrepareAsync(ExamWith(gcc));
 
         // Assert
-        Toolchain toolchain = result.Value[^1];
-        toolchain.IsFromThisComputer.ShouldBeTrue();
+        Toolchain toolchain = result.Value.First(candidate => candidate.IsFromThisComputer && candidate.Kind == ToolchainKind.Gcc);
         toolchain.Has(ToolName.CCompiler).ShouldBeTrue();
         result.Value.First(candidate => !candidate.IsFromThisComputer).Has(ToolName.CCompiler).ShouldBeFalse();
     }

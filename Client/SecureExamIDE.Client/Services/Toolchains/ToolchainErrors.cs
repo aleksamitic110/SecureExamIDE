@@ -4,10 +4,19 @@ namespace SecureExamIDE.Client.Services.Toolchains;
 
 internal static class ToolchainErrors
 {
-    public static ApiError UnsupportedArchive(string fileName) => new(
+    // Said to the student, who can do nothing about it but tell the professor - so it names the
+    // toolchain as the professor named it, not the file it was stored as.
+    public static ApiError UnsupportedArchive(string name) => new(
         0,
         "Toolchains.UnsupportedArchive",
-        $"'{fileName}' is in a format this version cannot unpack. Zip and tar.gz archives are supported.",
+        $"'{name}' was attached to this exam in a format the application cannot unpack. Only zip and tar.gz archives can be used; the professor has to attach it again as one of those.",
+        []);
+
+    // Said to the professor, at the moment the mistake can still be put right.
+    public static ApiError UnsupportedUpload(string fileName) => new(
+        0,
+        "Toolchains.UnsupportedUpload",
+        $"'{fileName}' cannot be attached: the students' application unpacks only .zip and .tar.gz archives. Download the .zip build of the same toolchain and attach that instead.",
         []);
 
     public static ApiError CannotUnpack(string name, string detail) => new(

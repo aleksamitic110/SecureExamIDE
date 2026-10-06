@@ -3,6 +3,12 @@
              xmlns:vm="using:SecureExamIDE.Client.ViewModels.Professor"
              x:Class="SecureExamIDE.Client.Views.Professor.SittingsView"
              x:DataType="vm:SittingsViewModel">
+  <UserControl.Resources>
+    <!-- Hours and minutes as 08 and 05 rather than 8 and 5, in the list and in the closed box. -->
+    <DataTemplate x:Key="TwoDigits" x:DataType="x:Int32">
+      <TextBlock Text="{Binding StringFormat='{}{0:00}'}" />
+    </DataTemplate>
+  </UserControl.Resources>
   <Panel>
     <DockPanel Margin="32">
       <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,20">
@@ -73,23 +79,39 @@
     <!-- Scheduling: local date and time, turned into UTC by the API client. -->
     <Border IsVisible="{Binding IsScheduling}"
             Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
-      <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="560">
+      <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center" Width="520">
         <StackPanel Classes="form">
           <TextBlock Classes="heading" Text="Schedule a sitting" />
           <TextBlock Classes="info" TextWrapping="Wrap"
                      Text="The exam's task files are sealed into a package for this sitting alone. You are given the one-time code that opens it, once." />
 
           <TextBlock Classes="label" Text="Starts" />
-          <Grid ColumnDefinitions="*,12,Auto">
-            <DatePicker Grid.Column="0" SelectedDate="{Binding StartDate}" />
-            <TimePicker Grid.Column="2" ClockIdentifier="24HourClock" SelectedTime="{Binding StartTime}" />
+          <Grid ColumnDefinitions="*,16,84,Auto,84">
+            <CalendarDatePicker Grid.Column="0" HorizontalAlignment="Stretch" SelectedDateFormat="Long"
+                                IsTodayHighlighted="True" SelectedDate="{Binding StartDay}" />
+            <ComboBox Grid.Column="2" HorizontalAlignment="Stretch" MaxDropDownHeight="260"
+                      ItemsSource="{Binding Hours}" SelectedItem="{Binding StartHour}"
+                      ItemTemplate="{StaticResource TwoDigits}" ToolTip.Tip="Hour" />
+            <TextBlock Grid.Column="3" Text=":" FontWeight="SemiBold" VerticalAlignment="Center" Margin="8,0" />
+            <ComboBox Grid.Column="4" HorizontalAlignment="Stretch" MaxDropDownHeight="260"
+                      ItemsSource="{Binding Minutes}" SelectedItem="{Binding StartMinute}"
+                      ItemTemplate="{StaticResource TwoDigits}" ToolTip.Tip="Minute" />
           </Grid>
 
           <TextBlock Classes="label" Text="Ends" />
-          <Grid ColumnDefinitions="*,12,Auto">
-            <DatePicker Grid.Column="0" SelectedDate="{Binding EndDate}" />
-            <TimePicker Grid.Column="2" ClockIdentifier="24HourClock" SelectedTime="{Binding EndTime}" />
+          <Grid ColumnDefinitions="*,16,84,Auto,84">
+            <CalendarDatePicker Grid.Column="0" HorizontalAlignment="Stretch" SelectedDateFormat="Long"
+                                IsTodayHighlighted="True" SelectedDate="{Binding EndDay}" />
+            <ComboBox Grid.Column="2" HorizontalAlignment="Stretch" MaxDropDownHeight="260"
+                      ItemsSource="{Binding Hours}" SelectedItem="{Binding EndHour}"
+                      ItemTemplate="{StaticResource TwoDigits}" ToolTip.Tip="Hour" />
+            <TextBlock Grid.Column="3" Text=":" FontWeight="SemiBold" VerticalAlignment="Center" Margin="8,0" />
+            <ComboBox Grid.Column="4" HorizontalAlignment="Stretch" MaxDropDownHeight="260"
+                      ItemsSource="{Binding Minutes}" SelectedItem="{Binding EndMinute}"
+                      ItemTemplate="{StaticResource TwoDigits}" ToolTip.Tip="Minute" />
           </Grid>
+
+          <TextBlock Classes="info" FontSize="12" Text="Times are this computer's local time, on the 24-hour clock." />
 
           <TextBlock Classes="error" TextWrapping="Wrap" Text="{Binding ScheduleError}"
                      IsVisible="{Binding ScheduleError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -106,11 +128,21 @@
     <!-- The one time the code exists outside the professor's hands. -->
     <Border IsVisible="{Binding HasNewCode}"
             Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
-      <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="620">
+      <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center" Width="680">
         <StackPanel Classes="form">
           <TextBlock Classes="heading" Text="Write this code down now" />
           <TextBlock Classes="info" Text="{Binding NewCodeDetails}" />
-          <TextBox Classes="code wide" IsReadOnly="True" Text="{Binding NewCode}" />
+          <!-- Shown whole, on one line: a code that has to be scrolled is a code copied down wrong. -->
+          <Border Classes="item" Padding="16,14">
+            <Grid ColumnDefinitions="*,Auto">
+              <SelectableTextBlock x:Name="NewCodeText" Text="{Binding NewCode}"
+                                   FontFamily="Consolas, Menlo, monospace" FontSize="24" FontWeight="SemiBold"
+                                   LetterSpacing="1" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              <Button Grid.Column="1" x:Name="CopyCodeButton" Content="Copy" MinWidth="84"
+                      HorizontalContentAlignment="Center" VerticalAlignment="Center" Margin="12,0,0,0"
+                      Click="OnCopyCode" />
+            </Grid>
+          </Border>
           <TextBlock Classes="error" TextWrapping="Wrap"
                      Text="This is the only time the code is shown. The server keeps only a digest of it, so it cannot be looked up again - if it is lost, the only way back is to schedule another sitting. Read it out to the students when the exam starts." />
           <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">

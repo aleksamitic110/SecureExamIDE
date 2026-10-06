@@ -558,7 +558,7 @@ public sealed partial class WorkspaceViewModel(
         {
             List<SourceFile> sources = [.. Files.Select(file => new SourceFile(file.Name, file.Document.Text))];
 
-            Toolchain? toolchain = await PrepareToolchainAsync(sources, _running.Token);
+            Toolchain? toolchain = await PrepareToolchainAsync(sources, ActiveFile?.Name, _running.Token);
 
             if (toolchain is null)
             {
@@ -573,7 +573,9 @@ public sealed partial class WorkspaceViewModel(
                 MaxOutputBytes,
                 // The tab the student is on is the program they mean by Run, which is what lets two
                 // programs with a main of their own live in one workspace.
-                ActiveFile?.Name);
+                ActiveFile?.Name,
+                // Everything the exam shipped that is not a compiler: course headers, a library.
+                [.. (_toolchains ?? []).Where(shipped => shipped.Kind == ToolchainKind.Unknown)]);
 
             _activity?.Write(ActivityKind.RunStarted, string.Join(", ", request.Sources.Select(source => source.Name)));
 
@@ -641,9 +643,12 @@ public sealed partial class WorkspaceViewModel(
         ConsoleText = string.Empty;
     }
 
-    // Unpacked on the first run rather than when the workspace opens, so opening the exam is instant.
+    // Looked at on the first run rather than when the workspace opens, so opening the exam is instant.
+    // The archives were unpacked when the exam was downloaded; unpacking here is only the fallback for
+    // an exam downloaded before that was so, or one whose unpacking failed at home.
     private async Task<Toolchain?> PrepareToolchainAsync(
         IReadOnlyList<SourceFile> sources,
+        string? entryName,
         CancellationToken cancellationToken)
     {
         if (_toolchains is null)
@@ -666,7 +671,7 @@ public sealed partial class WorkspaceViewModel(
         // matter of the exam carrying a second toolchain. Failing that, any toolchain with something
         // runnable in it, so the runner can say precisely what is missing rather than the screen
         // guessing - an exam with gcc but no g++ and a C++ file on screen is the case that matters.
-        ILanguageDriver? driver = drivers.ForSources(sources);
+        ILanguageDriver? driver = drivers.ForSources(sources, entryName);
 
         Toolchain? toolchain =
             _toolchains.FirstOrDefault(candidate => driver?.CanBuildWith(candidate, sources) == true)
@@ -678,7 +683,7 @@ public sealed partial class WorkspaceViewModel(
         }
         else if (toolchain.IsFromThisComputer)
         {
-            Append("The exam's toolchain has no working compiler here, so the compiler installed on this computer is used instead.");
+            Append($"The exam's toolchain has nothing that works here, so this is used instead: {toolchain.Name}.");
         }
         else
         {

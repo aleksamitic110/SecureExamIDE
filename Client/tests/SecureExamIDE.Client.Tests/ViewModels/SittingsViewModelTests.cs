@@ -127,6 +127,35 @@ public sealed class SittingsViewModelTests
         page.EndTime.ShouldBe(TimeSpan.FromHours(15));
     }
 
+    // The form's calendar and its hour and minute lists are another view of the same start and end.
+    [Fact]
+    public async Task TheFormsDayHourAndMinute_Should_SetTheStartAndEnd()
+    {
+        // Arrange
+        Returns();
+        SittingsViewModel page = CreatePage(ExamId, canSchedule: true);
+        await page.LoadCommand.ExecuteAsync(null);
+        page.BeginScheduleCommand.Execute(null);
+
+        // Act
+        page.StartDay = new DateTime(2026, 10, 12, 0, 0, 0, DateTimeKind.Unspecified);
+        page.StartHour = 9;
+        page.StartMinute = 30;
+        page.EndDay = new DateTime(2026, 10, 12, 0, 0, 0, DateTimeKind.Unspecified);
+        page.EndHour = 11;
+        page.EndMinute = 45;
+
+        // Assert
+        page.StartDate!.Value.Date.ShouldBe(new DateTime(2026, 10, 12, 0, 0, 0, DateTimeKind.Unspecified));
+        page.StartTime.ShouldBe(new TimeSpan(9, 30, 0));
+        page.EndTime.ShouldBe(new TimeSpan(11, 45, 0));
+        page.StartDay.ShouldBe(new DateTime(2026, 10, 12, 0, 0, 0, DateTimeKind.Unspecified));
+        page.StartHour.ShouldBe(9);
+        page.EndMinute.ShouldBe(45);
+        page.Hours.Count.ShouldBe(24);
+        page.Minutes.ShouldContain(55);
+    }
+
     [Fact]
     public async Task Schedule_Should_SendTheChosenTimes_AndShowTheCodeOnce()
     {

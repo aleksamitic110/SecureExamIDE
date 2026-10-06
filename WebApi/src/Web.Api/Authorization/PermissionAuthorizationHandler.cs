@@ -22,7 +22,7 @@ internal sealed class PermissionAuthorizationHandler(IServiceScopeFactory servic
 
         Guid userId = context.User.GetUserId();
 
-        HashSet<string> permissions = await permissionProvider.GetForUserIdAsync(userId);
+        HashSet<string> permissions = await permissionProvider.GetForUserIdAsync(userId, context.User.GetDeviceId());
 
         if (permissions.Contains(requirement.Permission))
         {

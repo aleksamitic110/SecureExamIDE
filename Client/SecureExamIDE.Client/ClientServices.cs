@@ -81,6 +81,7 @@ internal static class ClientServices
         // One driver per language the workspace can build. Adding Java, Python or C# is a driver here
         // and a row in the toolchain service's name table; the runner itself does not change.
         services.AddSingleton<ILanguageDriver, GccDriver>();
+        services.AddSingleton<ILanguageDriver, PythonDriver>();
         services.AddSingleton<ILanguageDrivers, LanguageDrivers>();
         services.AddSingleton<IPdfRenderer, PdfRenderer>();
         services.AddSingleton<WindowExamLockdown>();
