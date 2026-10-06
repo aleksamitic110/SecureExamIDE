@@ -16,7 +16,7 @@ public sealed class UnlockSittingViewModelTests
         new(Guid.NewGuid(), Now.AddMinutes(-5), Now.AddHours(2), 176, new string('e', 64), Now.AddDays(-2));
 
     private static readonly DownloadedExam Exam =
-        new(Guid.NewGuid(), "Algorithms", "Algorithms and Data Structures", "", "Milena Frtunic", [Sitting], [], Now);
+        new(Guid.NewGuid(), "Algorithms", "Algorithms and Data Structures", "", "Jovana Nikolic", [Sitting], [], Now);
 
     private readonly INavigationService _navigation = Substitute.For<INavigationService>();
     private readonly IPackageUnlocker _unlocker = Substitute.For<IPackageUnlocker>();
@@ -106,7 +106,7 @@ public sealed class UnlockSittingViewModelTests
 
         // Assert
         page.ExamTitle.ShouldBe("Algorithms");
-        page.Details.ShouldBe("Algorithms and Data Structures · Milena Frtunic · Fri 18 Sep 2026, 08:00 - 10:05");
+        page.Details.ShouldBe("Algorithms and Data Structures · Jovana Nikolic · Fri 18 Sep 2026, 08:00 - 10:05");
         page.Status.ShouldBe("Enter the code the professor gave out for this sitting.");
     }
 }

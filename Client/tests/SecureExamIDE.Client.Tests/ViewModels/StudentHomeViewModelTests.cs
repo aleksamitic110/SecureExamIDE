@@ -14,7 +14,7 @@ public sealed class StudentHomeViewModelTests
     private readonly ILocalExamLibrary _library = Substitute.For<ILocalExamLibrary>();
 
     private static CatalogExam ExamNamed(string title) => new(
-        Guid.NewGuid(), title, "Description", "Subject", DateTimeOffset.UtcNow, "Milena", "Frtunic", 1, 2, 3 * 1024 * 1024);
+        Guid.NewGuid(), title, "Description", "Subject", DateTimeOffset.UtcNow, "Jovana", "Nikolic", 1, 2, 3 * 1024 * 1024);
 
     private StudentHomeViewModel CreatePage() => new(_session, _navigation, _catalog, _library);
 

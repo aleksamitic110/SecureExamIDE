@@ -13,7 +13,7 @@ public sealed class ExamDetailsViewModelTests
     private static readonly DateTimeOffset Now = new(2026, 9, 16, 12, 0, 0, TimeSpan.Zero);
 
     private static readonly CatalogExam Exam = new(
-        Guid.NewGuid(), "Algorithms", "Graphs", "Algorithms and Data Structures", Now, "Milena", "Frtunic", 1, 1, 5000);
+        Guid.NewGuid(), "Algorithms", "Graphs", "Algorithms and Data Structures", Now, "Jovana", "Nikolic", 1, 1, 5000);
 
     private readonly ISessionService _session = Substitute.For<ISessionService>();
     private readonly INavigationService _navigation = Substitute.For<INavigationService>();
@@ -48,7 +48,7 @@ public sealed class ExamDetailsViewModelTests
         ExamSitting sitting = SittingAt(Now.AddMinutes(-5));
         var downloaded = new DownloadedSitting(sitting.Id, sitting.StartsAt, sitting.EndsAt, 1000, sitting.PackageSha256, Now);
         _library.LoadAsync(Exam.Id, Arg.Any<CancellationToken>()).Returns(new DownloadedExam(
-            Exam.Id, Exam.Title, Exam.Subject, Exam.Description, "Milena Frtunic", [downloaded], [], Now));
+            Exam.Id, Exam.Title, Exam.Subject, Exam.Description, "Jovana Nikolic", [downloaded], [], Now));
 
         using ExamDetailsViewModel page = await OpenWithAsync(sitting);
         SittingItemViewModel item = page.Sittings.ShouldHaveSingleItem();
@@ -69,7 +69,7 @@ public sealed class ExamDetailsViewModelTests
         ExamSitting sitting = SittingAt(Now.AddMinutes(-5));
         var downloaded = new DownloadedSitting(sitting.Id, sitting.StartsAt, sitting.EndsAt, 1000, sitting.PackageSha256, Now);
         _library.LoadAsync(Exam.Id, Arg.Any<CancellationToken>()).Returns(
-            _ => new DownloadedExam(Exam.Id, Exam.Title, Exam.Subject, Exam.Description, "Milena Frtunic", [downloaded], [], Now),
+            _ => new DownloadedExam(Exam.Id, Exam.Title, Exam.Subject, Exam.Description, "Jovana Nikolic", [downloaded], [], Now),
             _ => null);
 
         using ExamDetailsViewModel page = await OpenWithAsync(sitting);
@@ -98,7 +98,7 @@ public sealed class ExamDetailsViewModelTests
         page.Sittings.Select(s => s.CanDownload).ShouldBe([false, true, true]);
         page.Sittings[2].When.ShouldBe("Sat 19 Sep 2026, 12:00 - 14:00");
         page.Dependencies.ShouldHaveSingleItem().Name.ShouldBe("gcc 13.2");
-        page.Subtitle.ShouldBe("Algorithms and Data Structures · Milena Frtunic");
+        page.Subtitle.ShouldBe("Algorithms and Data Structures · Jovana Nikolic");
     }
 
     [Fact]

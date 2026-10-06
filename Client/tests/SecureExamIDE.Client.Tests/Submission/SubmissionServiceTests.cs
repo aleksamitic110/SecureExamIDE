@@ -31,7 +31,7 @@ public sealed class SubmissionServiceTests : IDisposable
         Guid.NewGuid(), Now.AddHours(-2), Now.AddHours(1), 1000, new string('a', 64), Now.AddDays(-1));
 
     private static readonly DownloadedExam Exam = new(
-        Guid.NewGuid(), "Algorithms", "Algorithms and Data Structures", "", "Milena Frtunic", [Sitting], [], Now);
+        Guid.NewGuid(), "Algorithms", "Algorithms and Data Structures", "", "Jovana Nikolic", [Sitting], [], Now);
 
     public SubmissionServiceTests()
     {

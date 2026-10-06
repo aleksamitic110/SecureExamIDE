@@ -26,7 +26,7 @@ public sealed class WorkspaceViewModelTests : IDisposable
         new(Guid.NewGuid(), Now.AddMinutes(-5), Now.AddHours(2), 176, new string('e', 64), Now.AddDays(-2));
 
     private static readonly DownloadedExam Exam =
-        new(Guid.NewGuid(), "Algorithms", "Algorithms and Data Structures", "", "Milena Frtunic", [Sitting], [], Now);
+        new(Guid.NewGuid(), "Algorithms", "Algorithms and Data Structures", "", "Jovana Nikolic", [Sitting], [], Now);
 
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "secureexamide-tests-" + Guid.NewGuid().ToString("N"));
     private readonly INavigationService _navigation = Substitute.For<INavigationService>();

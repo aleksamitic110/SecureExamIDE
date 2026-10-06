@@ -58,7 +58,7 @@ public sealed class ToolchainServiceTests : IDisposable
     }
 
     private static DownloadedExam ExamWith(params DownloadedDependency[] dependencies) => new(
-        ExamId, "Algorithms", "Algorithms and Data Structures", "", "Milena Frtunic", [], dependencies, DateTimeOffset.UtcNow);
+        ExamId, "Algorithms", "Algorithms and Data Structures", "", "Jovana Nikolic", [], dependencies, DateTimeOffset.UtcNow);
 
     private static string Compiler => OperatingSystem.IsWindows() ? "bin/gcc.exe" : "bin/gcc";
 

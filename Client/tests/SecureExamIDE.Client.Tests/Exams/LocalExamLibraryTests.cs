@@ -19,7 +19,7 @@ public sealed class LocalExamLibraryTests : IDisposable
         "Algorithms",
         "Algorithms and Data Structures",
         "Graphs and dynamic programming",
-        "Milena Frtunic",
+        "Jovana Nikolic",
         [new DownloadedSitting(Guid.NewGuid(), DateTimeOffset.UtcNow.AddDays(3), DateTimeOffset.UtcNow.AddDays(3).AddHours(2), 2048, new string('a', 64), DateTimeOffset.UtcNow)],
         [new DownloadedDependency(Guid.NewGuid(), "gcc", "13.2", "application/gzip", 1_000_000, "file.tar.gz")],
         DateTimeOffset.UtcNow);

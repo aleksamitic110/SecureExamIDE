@@ -121,7 +121,7 @@ public sealed class ApiClientTests : IDisposable
         var userId = Guid.NewGuid();
         _handler.Respond(
             HttpStatusCode.OK,
-            $"{{\"id\":\"{userId}\",\"email\":\"prof@example.com\",\"firstName\":\"Milena\",\"lastName\":\"Frtunic\",\"role\":\"Professor\",\"indexNumber\":null}}");
+            $"{{\"id\":\"{userId}\",\"email\":\"prof@example.com\",\"firstName\":\"Jovana\",\"lastName\":\"Nikolic\",\"role\":\"Professor\",\"indexNumber\":null}}");
 
         // Act
         ApiResult<UserProfile> result = await _client.GetUserAsync(userId, "token-value");
@@ -159,7 +159,7 @@ public sealed class ApiClientTests : IDisposable
             HttpStatusCode.OK,
             $$"""
             {"items":[{"id":"{{examId}}","title":"Algorithms","description":"Graphs","subject":"Algorithms and Data Structures",
-              "publishedAt":"2026-09-10T08:30:00Z","professorFirstName":"Milena","professorLastName":"Frtunic",
+              "publishedAt":"2026-09-10T08:30:00Z","professorFirstName":"Jovana","professorLastName":"Nikolic",
               "fileCount":2,"dependencyCount":1,"totalSizeBytes":1048576}],
              "page":2,"pageSize":20,"totalCount":21,"hasNextPage":false,"hasPreviousPage":true}
             """);

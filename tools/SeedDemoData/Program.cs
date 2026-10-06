@@ -36,7 +36,7 @@ try
 
     // The student is seeded so signing in on a new machine needs no registration; registering by hand
     // still works, and is the only way to test registration itself.
-    var professor = new DemoAccount("demo.professor@example.com", "Milena", "Frtunic", "Password123!", "Professor", null);
+    var professor = new DemoAccount("demo.professor@example.com", "Jovana", "Nikolic", "Password123!", "Professor", null);
     var student = new DemoAccount("demo.student@example.com", "Ana", "Anic", "Password123!", "Student", "19252");
 
     Console.WriteLine("Accounts");

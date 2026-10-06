@@ -11,7 +11,7 @@ public sealed class ExamDownloadServiceTests : IDisposable
 {
     private static readonly CatalogExam Exam = new(
         Guid.NewGuid(), "Algorithms", "Graphs", "Algorithms and Data Structures", DateTimeOffset.UtcNow,
-        "Milena", "Frtunic", 2, 1, 5000);
+        "Jovana", "Nikolic", 2, 1, 5000);
 
     private static readonly ExamSitting Sitting = new(
         Guid.NewGuid(), Exam.Id, DateTimeOffset.UtcNow.AddDays(2), DateTimeOffset.UtcNow.AddDays(2).AddHours(2), 1000, new string('b', 64));
@@ -87,7 +87,7 @@ public sealed class ExamDownloadServiceTests : IDisposable
         DownloadedExam local = (await _library.LoadAsync(Exam.Id)).ShouldNotBeNull();
         local.Sittings.ShouldHaveSingleItem().SittingId.ShouldBe(Sitting.Id);
         local.Dependencies.ShouldHaveSingleItem().Name.ShouldBe("gcc");
-        local.ProfessorName.ShouldBe("Milena Frtunic");
+        local.ProfessorName.ShouldBe("Jovana Nikolic");
 
         reports[^1].ItemNumber.ShouldBe(3);
         reports[^1].BytesTotal.ShouldBe(5000);
