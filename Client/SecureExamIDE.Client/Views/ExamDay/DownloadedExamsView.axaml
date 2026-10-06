@@ -3,7 +3,7 @@
              xmlns:vm="using:SecureExamIDE.Client.ViewModels.ExamDay"
              x:Class="SecureExamIDE.Client.Views.ExamDay.DownloadedExamsView"
              x:DataType="vm:DownloadedExamsViewModel">
-  <DockPanel Margin="32">
+  <DockPanel Classes="page">
     <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,24">
       <StackPanel Spacing="4">
         <TextBlock Classes="title" Text="Exams on this computer" />
@@ -33,8 +33,9 @@
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:LocalSittingItem">
             <Border Classes="item">
-              <Grid ColumnDefinitions="*,Auto">
-                <StackPanel Spacing="4">
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <Border Classes="tile"><Path Data="{StaticResource IconLaptop}" /></Border>
+                <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
                   <StackPanel Orientation="Horizontal" Spacing="10">
                     <TextBlock Classes="itemTitle" Text="{Binding ExamTitle}" />
                     <Border Classes="badge" IsVisible="{Binding IsInProgress}">
@@ -49,7 +50,7 @@
                   </TextBlock>
                   <TextBlock Classes="info" Text="{Binding SubmissionStatus}" IsVisible="{Binding IsSealed}" />
                 </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                   <Border Classes="badge" IsVisible="{Binding IsHandedIn}">
                     <TextBlock Text="Handed in" />
                   </Border>

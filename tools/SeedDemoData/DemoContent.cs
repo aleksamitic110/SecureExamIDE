@@ -68,9 +68,17 @@ internal static class DemoContent
 
     // Windows starts a .cmd through CreateProcess as readily as an .exe, and the client looks for both.
     // On Linux the shebang does it, and the client restores the executable bit a zip cannot carry.
+    //
+    // A launcher must never find itself. The client puts the toolchain's own folder first on PATH - a
+    // real MinGW needs that to load its libraries - so a launcher that simply ran "gcc" would run
+    // gcc.cmd again, for ever. On Windows it therefore looks for gcc.exe by that exact name; on Linux
+    // it takes its own folder off PATH before handing over.
     private static byte[] Launcher(string program, bool windows) => Text(windows
-        ? $"@echo off\r\n{program} %*\r\n"
-        : $"#!/bin/sh\nexec {program} \"$@\"\n");
+        ? $"@echo off\r\nfor %%i in ({program}.exe) do \"%%~$PATH:i\" %*\r\n"
+        : "#!/bin/sh\n" +
+          "here=$(cd \"$(dirname \"$0\")\" && pwd)\n" +
+          "PATH=$(printf '%s' \"$PATH\" | tr ':' '\\n' | grep -vx \"$here\" | paste -sd: -)\n" +
+          $"exec {program} \"$@\"\n");
 
     public static byte[] HeadersArchive() => Zip(new Dictionary<string, byte[]>
     {

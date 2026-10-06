@@ -5,11 +5,27 @@
         x:DataType="vm:MainWindowViewModel"
         Icon="/Assets/avalonia-logo.ico"
         Title="SecureExamIDE"
-        Width="1000" Height="720"
-        MinWidth="520" MinHeight="560"
+        Width="1180" Height="780"
+        MinWidth="560" MinHeight="600"
         WindowStartupLocation="CenterScreen">
 
-  <!-- The window only hosts the current page; ViewLocator turns the page's view model into its view. -->
-  <ContentControl Content="{Binding CurrentPage}" />
+  <DockPanel>
+    <!-- The application's name, over every signed-in page. -->
+    <Border DockPanel.Dock="Top" IsVisible="{Binding IsTopBarShown}" Padding="22,10"
+            Background="{DynamicResource SurfaceBrush}"
+            BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1">
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <Border Width="28" Height="28" CornerRadius="8" Background="{StaticResource BrandBrush}">
+          <TextBlock Text="&lt;/&gt;" FontFamily="{StaticResource CodeFont}" FontSize="10.5" FontWeight="Bold"
+                     Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
+        <TextBlock Text="SecureExamIDE" FontSize="15" FontWeight="SemiBold" LetterSpacing="-0.2"
+                   VerticalAlignment="Center" />
+      </StackPanel>
+    </Border>
+
+    <!-- The window only hosts the current page; ViewLocator turns the page's view model into its view. -->
+    <ContentControl Content="{Binding CurrentPage}" />
+  </DockPanel>
 
 </Window>

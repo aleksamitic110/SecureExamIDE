@@ -47,6 +47,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="SecureExamIDE.Client.Tests" />
+    <InternalsVisibleTo Include="UiShots" />
     <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 </Project>

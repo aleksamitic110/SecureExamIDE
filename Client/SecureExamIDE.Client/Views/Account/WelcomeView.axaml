@@ -3,7 +3,7 @@
              xmlns:vm="using:SecureExamIDE.Client.ViewModels.Account"
              x:Class="SecureExamIDE.Client.Views.Account.WelcomeView"
              x:DataType="vm:WelcomeViewModel">
-  <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center">
+  <ContentControl Classes="frame">
     <StackPanel Classes="form">
       <TextBlock Classes="title" Text="SecureExamIDE" />
       <TextBlock Classes="info"
@@ -13,5 +13,5 @@
       <Button Content="I already have an account" HorizontalAlignment="Stretch"
               HorizontalContentAlignment="Center" Command="{Binding SignInCommand}" />
     </StackPanel>
-  </Border>
+  </ContentControl>
 </UserControl>

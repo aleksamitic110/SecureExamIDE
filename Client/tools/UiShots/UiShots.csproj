@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Draws every screen of the client to an image file, with no window on the desktop, by driving
+       the real pages against a running server with the demo data. Used to look at the user
+       interface as a whole, in the light and the dark theme, and to produce figures for the thesis. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <AnalysisMode>Default</AnalysisMode>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Headless" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\SecureExamIDE.Client\SecureExamIDE.Client.csproj" />
+  </ItemGroup>
+
+</Project>

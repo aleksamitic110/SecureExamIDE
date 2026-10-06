@@ -4,7 +4,7 @@
              x:Class="SecureExamIDE.Client.Views.Professor.ExamContentsView"
              x:DataType="vm:ExamContentsViewModel">
   <Panel>
-    <DockPanel Margin="32">
+    <DockPanel Classes="page">
       <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,20">
         <StackPanel Spacing="4">
           <TextBlock Classes="title" Text="{Binding Title}" />
@@ -64,13 +64,14 @@
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:ExamFileItem">
                   <Border Classes="item">
-                    <Grid ColumnDefinitions="*,Auto">
-                      <StackPanel Spacing="2">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                      <Border Classes="tile"><Path Data="{StaticResource IconExam}" /></Border>
+                      <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
                         <TextBlock Classes="itemTitle" Text="{Binding FileName}" />
                         <TextBlock Classes="info" Text="{Binding Details}" />
                         <TextBlock Classes="info" Text="{Binding Digest}" />
                       </StackPanel>
-                      <Button Grid.Column="1" VerticalAlignment="Center" Content="Remove"
+                      <Button Grid.Column="2" VerticalAlignment="Center" Content="Remove"
                               IsVisible="{Binding $parent[ItemsControl].((vm:ExamContentsViewModel)DataContext).IsDraft}"
                               Command="{Binding $parent[ItemsControl].((vm:ExamContentsViewModel)DataContext).AskToRemoveFileCommand}"
                               CommandParameter="{Binding}" />
@@ -101,8 +102,9 @@
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:ExamDependencyItem">
                   <Border Classes="item">
-                    <Grid ColumnDefinitions="*,Auto">
-                      <StackPanel Spacing="2">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                      <Border Classes="tile"><Path Data="{StaticResource IconBox}" /></Border>
+                      <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal" Spacing="10">
                           <TextBlock Classes="itemTitle" Text="{Binding Name}" />
                           <Border Classes="badge">
@@ -111,7 +113,7 @@
                         </StackPanel>
                         <TextBlock Classes="info" Text="{Binding Details}" />
                       </StackPanel>
-                      <Button Grid.Column="1" VerticalAlignment="Center" Content="Remove"
+                      <Button Grid.Column="2" VerticalAlignment="Center" Content="Remove"
                               IsVisible="{Binding $parent[ItemsControl].((vm:ExamContentsViewModel)DataContext).IsDraft}"
                               Command="{Binding $parent[ItemsControl].((vm:ExamContentsViewModel)DataContext).AskToRemoveDependencyCommand}"
                               CommandParameter="{Binding}" />
@@ -127,7 +129,7 @@
 
     <!-- The toolchain form: a compiler needs a name, a version and the platform it runs on. -->
     <Border IsVisible="{Binding IsAddingToolchain}"
-            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+            Classes="scrim">
       <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="560">
         <StackPanel Classes="form">
           <TextBlock Classes="heading" Text="Add a toolchain" />
@@ -161,7 +163,7 @@
 
     <!-- One confirmation for publishing and for both kinds of removal: none of them can be undone. -->
     <Border IsVisible="{Binding IsConfirming}"
-            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+            Classes="scrim">
       <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="560">
         <StackPanel Classes="form">
           <TextBlock Classes="heading" Text="Are you sure?" />

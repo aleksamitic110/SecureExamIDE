@@ -3,7 +3,7 @@
              xmlns:vm="using:SecureExamIDE.Client.ViewModels.Account"
              x:Class="SecureExamIDE.Client.Views.Account.LoginView"
              x:DataType="vm:LoginViewModel">
-  <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center">
+  <ContentControl Classes="frame">
     <StackPanel Classes="form">
       <TextBlock Classes="title" Text="Sign in on this computer" />
       <TextBlock Classes="info"
@@ -24,5 +24,5 @@
         <Button Classes="accent" Content="Sign in" IsDefault="True" Command="{Binding SignInCommand}" />
       </StackPanel>
     </StackPanel>
-  </Border>
+  </ContentControl>
 </UserControl>

@@ -12,25 +12,10 @@
     <KeyBinding Gesture="Ctrl+J" Command="{Binding ToggleConsolePanelCommand}" />
   </UserControl.KeyBindings>
 
+  <!-- Laid out the way a code editor is, because that is what a student already knows how to use: a
+       bar across the top, the files on the left, tabs over the editor, a console under it, and a
+       coloured strip along the bottom that says what state the exam is in. -->
   <UserControl.Styles>
-    <Style Selector="Border.panel">
-      <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundAltHighBrush}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource SystemControlForegroundBaseLowBrush}" />
-      <Setter Property="BorderThickness" Value="1" />
-    </Style>
-    <Style Selector="TextBlock.panelTitle">
-      <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="Opacity" Value="0.8" />
-      <Setter Property="VerticalAlignment" Value="Center" />
-    </Style>
-    <Style Selector="Border.tab">
-      <Setter Property="Padding" Value="12,6,4,6" />
-      <Setter Property="BorderBrush" Value="{DynamicResource SystemControlForegroundBaseLowBrush}" />
-      <Setter Property="BorderThickness" Value="0,0,1,0" />
-    </Style>
-    <Style Selector="Border.tab.active">
-      <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundBaseLowBrush}" />
-    </Style>
     <!-- No button in the exam takes the keyboard focus. A focused button is pressed by Space and
          Enter, which is how a student typing code can finish the exam without meaning to; this way
          the keyboard stays with the editor and every button, Finish above all, needs a deliberate
@@ -38,62 +23,193 @@
     <Style Selector=":is(Button)">
       <Setter Property="Focusable" Value="False" />
     </Style>
-    <Style Selector="Button.small">
-      <Setter Property="Padding" Value="6,0" />
-      <Setter Property="MinHeight" Value="22" />
+
+    <!-- The side panels and the strips over them. -->
+    <Style Selector="Border.pane">
+      <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    </Style>
+    <Style Selector="Border.sheet">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    </Style>
+
+    <!-- A small flat button: words until the pointer is over it. -->
+    <Style Selector="Button.tool">
+      <Setter Property="Padding" Value="8,3" />
+      <Setter Property="MinHeight" Value="24" />
       <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="CornerRadius" Value="6" />
       <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+    </Style>
+    <Style Selector="Button.tool:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.tool.run">
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="Padding" Value="12,3" />
+    </Style>
+    <Style Selector="Button.tool.run:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="Opacity" Value="0.88" />
+    </Style>
+    <Style Selector="Button.tool.run:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource LineStrongBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineStrongBrush}" />
+    </Style>
+
+    <!-- The switches for the three panels: quiet when a panel is put away, tinted when it is shown. -->
+    <Style Selector="ToggleButton.tool">
+      <Setter Property="Padding" Value="10,4" />
+      <Setter Property="MinHeight" Value="28" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="CornerRadius" Value="7" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.tool:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.tool:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource AccentTextBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.tool:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource AccentTextBrush}" />
+    </Style>
+
+    <!-- Tabs: the open one is the colour of the editor under it, with the accent along its top. -->
+    <Style Selector="Border.tab">
+      <Setter Property="Padding" Value="12,0,4,0" />
+      <Setter Property="Height" Value="34" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0,2,0,0" />
+    </Style>
+    <Style Selector="Border.tab.active">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+
+    <!-- The file list: the row is the highlight, so the list's own selection colour is put away. -->
+    <Style Selector="ListBox.files ListBoxItem">
+      <Setter Property="Padding" Value="8,1,6,1" />
+      <Setter Property="MinHeight" Value="30" />
+    </Style>
+    <Style Selector="ListBox.files ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+    </Style>
+    <Style Selector="ListBox.files ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+    </Style>
+    <Style Selector="ListBox.files ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+    </Style>
+
+    <!-- What is read rather than typed into: the console's transcript and a text task. -->
+    <Style Selector="TextBox.plain">
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="FontFamily" Value="{StaticResource CodeFont}" />
+    </Style>
+    <Style Selector="TextBox.plain:pointerover /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="TextBox.plain:focus /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+
+    <Style Selector="Border.statusBar TextBlock">
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
   </UserControl.Styles>
 
   <Panel>
     <!-- Switched off under a confirmation, so nothing typed while it is up reaches the editor. -->
     <DockPanel IsEnabled="{Binding !IsOverlayShown}">
-      <!-- Header: what exam this is, and the only way out. -->
-      <Border DockPanel.Dock="Top" Classes="panel" BorderThickness="0,0,0,1" Padding="16,10">
-        <Grid ColumnDefinitions="*,Auto,Auto">
-          <StackPanel Spacing="2">
-            <TextBlock Classes="itemTitle" Text="{Binding ExamTitle}" />
-            <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Classes="info" Text="{Binding Details}" />
-              <TextBlock Text="{Binding TimeLeft}" FontWeight="SemiBold" />
-              <TextBlock Classes="error" Text="{Binding TimeLeft}" IsVisible="{Binding IsEndingSoon}" />
+
+      <!-- The bar across the top: what exam this is, the panels, the time, and the only way out. -->
+      <Border DockPanel.Dock="Top" Classes="sheet" BorderThickness="0,0,0,1" Padding="14,8">
+        <Grid ColumnDefinitions="Auto,*,Auto">
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <Border Width="28" Height="28" CornerRadius="8" Background="{StaticResource BrandBrush}">
+              <TextBlock Text="&lt;/&gt;" FontFamily="{StaticResource CodeFont}" FontSize="10.5" FontWeight="Bold"
+                         Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="{Binding ExamTitle}" FontSize="14" FontWeight="SemiBold" />
+              <TextBlock Classes="info" FontSize="12" LineHeight="16" Text="{Binding Details}" />
             </StackPanel>
           </StackPanel>
-          <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0" Spacing="2">
-            <TextBlock Classes="error" HorizontalAlignment="Right"
-                       Text="{Binding LeftWindowNote}" IsVisible="{Binding HasLeftWindow}" />
-            <TextBlock Classes="info" FontSize="11" HorizontalAlignment="Right"
-                       Text="{Binding EmergencyExitNote}" IsVisible="{Binding IsEmergencyExitShown}" />
-          </StackPanel>
-          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
             <!-- Each panel can be put away, so the editor or the console can have the whole window. -->
-            <ToggleButton Classes="small" Content="Files" ToolTip.Tip="Ctrl+B"
+            <ToggleButton Classes="tool" Content="Files" ToolTip.Tip="Show or hide the files (Ctrl+B)"
                           IsChecked="{Binding IsFilesPanelShown}" />
-            <ToggleButton Classes="small" Content="Tasks" ToolTip.Tip="Ctrl+T"
-                          IsChecked="{Binding IsTasksPanelShown}" />
-            <ToggleButton Classes="small" Content="Console" ToolTip.Tip="Ctrl+J"
+            <ToggleButton Classes="tool" Content="Console" ToolTip.Tip="Show or hide the console (Ctrl+J)"
                           IsChecked="{Binding IsConsolePanelShown}" />
-            <Button Classes="accent" Content="Finish exam" Command="{Binding AskToFinishCommand}" />
+            <ToggleButton Classes="tool" Content="Tasks" ToolTip.Tip="Show or hide the tasks (Ctrl+T)"
+                          IsChecked="{Binding IsTasksPanelShown}" />
+
+            <Border Classes="badge" Margin="10,0,6,0" Padding="12,5"
+                    Classes.flagged="{Binding IsEndingSoon}">
+              <TextBlock Text="{Binding TimeLeft}" FontSize="13" Classes.flagged="{Binding IsEndingSoon}" />
+            </Border>
+
+            <Button Classes="accent" Content="Finish exam" Padding="14,6" Command="{Binding AskToFinishCommand}" />
           </StackPanel>
         </Grid>
       </Border>
 
-      <TextBlock DockPanel.Dock="Top" Classes="error" Margin="16,8" Text="{Binding ErrorMessage}"
-                 IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+      <!-- The strip along the bottom: the state of the exam, always in view. -->
+      <Border DockPanel.Dock="Bottom" Classes="statusBar" Padding="14,4"
+              Background="{DynamicResource StatusBarBrush}">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel Orientation="Horizontal" Spacing="18">
+            <TextBlock Text="Exam in progress · offline · this window is locked" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding LeftWindowNote}" IsVisible="{Binding HasLeftWindow}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="18">
+            <TextBlock Text="{Binding EmergencyExitNote}" IsVisible="{Binding IsEmergencyExitShown}" Opacity="0.85" />
+            <TextBlock Text="{Binding TimeLeft}" FontWeight="SemiBold" />
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <Border DockPanel.Dock="Top" Padding="16,8" Background="{DynamicResource ErrorBackgroundBrush}"
+              IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock Classes="error" Text="{Binding ErrorMessage}" />
+      </Border>
 
       <Grid x:Name="PanelGrid" ColumnDefinitions="220,4,*,4,360">
 
         <!-- Files -->
-        <Border Classes="panel" BorderThickness="0,0,1,0" IsVisible="{Binding IsFilesPanelShown}">
+        <Border Classes="pane" BorderThickness="0,0,1,0" IsVisible="{Binding IsFilesPanelShown}">
           <DockPanel>
-            <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="12,8">
-              <TextBlock Classes="panelTitle" Text="Files" />
-              <Button Grid.Column="1" Classes="small" Content="+ New file" Command="{Binding StartNewFileCommand}" />
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="14,10,8,8">
+              <TextBlock Classes="eyebrow" Text="EXPLORER" />
+              <Button Grid.Column="1" Classes="tool" Content="+ New file" Command="{Binding StartNewFileCommand}" />
             </Grid>
 
-            <StackPanel DockPanel.Dock="Top" Margin="8,0,8,8" Spacing="6" IsVisible="{Binding IsNamingFile}">
-              <TextBox Text="{Binding FileName}" PlaceholderText="main.c">
+            <StackPanel DockPanel.Dock="Top" Margin="10,0,10,10" Spacing="6" IsVisible="{Binding IsNamingFile}">
+              <TextBox Text="{Binding FileName}" PlaceholderText="main.c" MinHeight="32" Padding="8,5" FontSize="13">
                 <TextBox.KeyBindings>
                   <KeyBinding Gesture="Enter" Command="{Binding ConfirmFileNameCommand}" />
                   <KeyBinding Gesture="Escape" Command="{Binding CancelNamingCommand}" />
@@ -102,26 +218,27 @@
               <TextBlock Classes="error" FontSize="12" Text="{Binding FileNameError}"
                          IsVisible="{Binding FileNameError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
               <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
-                <Button Classes="small" Content="Cancel" Command="{Binding CancelNamingCommand}" />
-                <Button Classes="small accent" Content="OK" Command="{Binding ConfirmFileNameCommand}" />
+                <Button Classes="tool" Content="Cancel" Command="{Binding CancelNamingCommand}" />
+                <Button Classes="tool run" Content="OK" Command="{Binding ConfirmFileNameCommand}" />
               </StackPanel>
             </StackPanel>
 
-            <TextBlock DockPanel.Dock="Top" Classes="info" Margin="12,4" FontSize="12"
+            <TextBlock DockPanel.Dock="Top" Classes="info" Margin="14,4" FontSize="12"
                        Text="No files yet. Create one to start." IsVisible="{Binding !Files.Count}" />
 
-            <ListBox ItemsSource="{Binding Files}" SelectedItem="{Binding ActiveFile, Mode=OneWay}" Background="Transparent">
+            <ListBox Classes="files" ItemsSource="{Binding Files}" SelectedItem="{Binding ActiveFile, Mode=OneWay}"
+                     Background="Transparent">
               <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="vm:WorkspaceFileItem">
                   <Grid ColumnDefinitions="*,Auto,Auto" Background="Transparent">
-                    <Button Classes="small" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                            Content="{Binding Name}" FontSize="13"
+                    <Button Classes="tool" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                            Content="{Binding Name}" FontSize="13" Foreground="{DynamicResource TextBrush}"
                             Command="{Binding $parent[ListBox].((vm:WorkspaceViewModel)DataContext).OpenCommand}"
                             CommandParameter="{Binding}" />
-                    <Button Grid.Column="1" Classes="small" Content="Rename" ToolTip.Tip="Rename"
+                    <Button Grid.Column="1" Classes="tool" Content="Rename" FontSize="11" ToolTip.Tip="Rename"
                             Command="{Binding $parent[ListBox].((vm:WorkspaceViewModel)DataContext).StartRenameCommand}"
                             CommandParameter="{Binding}" />
-                    <Button Grid.Column="2" Classes="small" Content="✕" ToolTip.Tip="Delete"
+                    <Button Grid.Column="2" Classes="tool" Content="✕" ToolTip.Tip="Delete"
                             Command="{Binding $parent[ListBox].((vm:WorkspaceViewModel)DataContext).AskToDeleteCommand}"
                             CommandParameter="{Binding}" />
                   </Grid>
@@ -134,9 +251,9 @@
         <GridSplitter Grid.Column="1" ResizeDirection="Columns" Background="Transparent"
                       IsVisible="{Binding IsFilesPanelShown}" />
 
-        <!-- Editor with tabs, and the output panel underneath -->
+        <!-- Editor with tabs, and the console underneath -->
         <Grid x:Name="EditorGrid" Grid.Column="2" RowDefinitions="Auto,*,4,160">
-          <Border Classes="panel" BorderThickness="0,0,0,1">
+          <Border Classes="pane" BorderThickness="0,0,0,1" MinHeight="34">
             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
               <ItemsControl ItemsSource="{Binding OpenFiles}">
                 <ItemsControl.ItemsPanel>
@@ -147,17 +264,17 @@
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:WorkspaceFileItem">
                     <Border Classes="tab" Classes.active="{Binding IsActive}">
-                      <StackPanel Orientation="Horizontal" Spacing="4">
-                        <Button Classes="small" FontSize="13"
+                      <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                        <Button Classes="tool" FontSize="13" Foreground="{DynamicResource TextBrush}"
                                 Command="{Binding $parent[ItemsControl].((vm:WorkspaceViewModel)DataContext).OpenCommand}"
                                 CommandParameter="{Binding}">
                           <StackPanel Orientation="Horizontal" Spacing="6">
                             <TextBlock Text="{Binding Name}" />
-                            <TextBlock Text="●" FontSize="10" VerticalAlignment="Center" IsVisible="{Binding IsDirty}"
-                                       ToolTip.Tip="Saving shortly" />
+                            <TextBlock Text="●" FontSize="9" VerticalAlignment="Center" IsVisible="{Binding IsDirty}"
+                                       Foreground="{DynamicResource AccentBrush}" ToolTip.Tip="Saving shortly" />
                           </StackPanel>
                         </Button>
-                        <Button Classes="small" Content="✕" ToolTip.Tip="Close tab"
+                        <Button Classes="tool" Content="✕" FontSize="11" ToolTip.Tip="Close tab"
                                 Command="{Binding $parent[ItemsControl].((vm:WorkspaceViewModel)DataContext).CloseTabCommand}"
                                 CommandParameter="{Binding}" />
                       </StackPanel>
@@ -168,44 +285,64 @@
             </ScrollViewer>
           </Border>
 
-          <ae:TextEditor Grid.Row="1" x:Name="Editor"
-                         Document="{Binding ActiveFile.Document}"
-                         IsVisible="{Binding HasActiveFile}"
-                         ShowLineNumbers="True"
-                         FontFamily="Cascadia Mono, Consolas, DejaVu Sans Mono, Menlo, monospace"
-                         FontSize="14"
-                         Padding="4" />
-          <TextBlock Grid.Row="1" Classes="info" HorizontalAlignment="Center" VerticalAlignment="Center"
-                     Text="Open a file on the left, or create one." IsVisible="{Binding HasNoActiveFile}" />
+          <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}">
+            <Panel>
+              <ae:TextEditor x:Name="Editor"
+                             Document="{Binding ActiveFile.Document}"
+                             IsVisible="{Binding HasActiveFile}"
+                             ShowLineNumbers="True"
+                             Background="Transparent"
+                             FontFamily="{StaticResource CodeFont}"
+                             FontSize="14"
+                             Padding="6,8" />
+              <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8"
+                          IsVisible="{Binding HasNoActiveFile}">
+                <Border Width="56" Height="56" CornerRadius="16" Background="{StaticResource BrandBrush}" Opacity="0.25"
+                        HorizontalAlignment="Center">
+                  <TextBlock Text="&lt;/&gt;" FontFamily="{StaticResource CodeFont}" FontSize="20" FontWeight="Bold"
+                             Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <TextBlock Classes="info" HorizontalAlignment="Center" Text="Open a file on the left, or create one." />
+                <TextBlock Classes="info" FontSize="12" HorizontalAlignment="Center"
+                           Text="Ctrl+S saves · Ctrl+B files · Ctrl+J console · Ctrl+T tasks" />
+              </StackPanel>
+            </Panel>
+          </Border>
 
           <GridSplitter Grid.Row="2" ResizeDirection="Rows" Background="Transparent"
                         IsVisible="{Binding IsConsolePanelShown}" />
 
-          <Border Grid.Row="3" Classes="panel" BorderThickness="0,1,0,0" IsVisible="{Binding IsConsolePanelShown}">
+          <Border Grid.Row="3" Classes="sheet" BorderThickness="0,1,0,0" IsVisible="{Binding IsConsolePanelShown}">
             <DockPanel>
-              <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" Margin="12,6">
-                <TextBlock Classes="panelTitle" Text="Console" />
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
-                  <Button Classes="small" Content="Clear" Command="{Binding ClearConsoleCommand}" />
-                  <Button Classes="small" Content="Stop" Command="{Binding StopCommand}" />
-                  <Button Classes="small accent" Content="Run" Command="{Binding RunCommand}" />
+              <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" Margin="14,7,10,4">
+                <TextBlock Classes="eyebrow" Text="CONSOLE" />
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
+                  <Button Classes="tool" Content="Clear" Command="{Binding ClearConsoleCommand}" />
+                  <Button Classes="tool" Content="Stop" Command="{Binding StopCommand}" />
+                  <Button Classes="tool run" Command="{Binding RunCommand}" ToolTip.Tip="Run the file on screen">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                      <Path Data="M0,0 L8,5 L0,10 Z" Fill="White" VerticalAlignment="Center" />
+                      <TextBlock Text="Run" />
+                    </StackPanel>
+                  </Button>
                 </StackPanel>
               </Grid>
 
               <!-- Typed while the program runs: what goes in here reaches its standard input. -->
-              <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto" Margin="8,4,8,8">
+              <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto" Margin="10,4,10,8">
                 <TextBox Text="{Binding InputText}" IsEnabled="{Binding IsRunning}" FontSize="12"
+                         MinHeight="30" Padding="10,5" FontFamily="{StaticResource CodeFont}"
                          PlaceholderText="Type here and press Enter to answer the program">
                   <TextBox.KeyBindings>
                     <KeyBinding Gesture="Enter" Command="{Binding SendInputCommand}" />
                   </TextBox.KeyBindings>
                 </TextBox>
-                <Button Grid.Column="1" Classes="small" Content="Send" Margin="6,0,0,0"
+                <Button Grid.Column="1" Classes="tool" Content="Send" Margin="6,0,0,0"
                         Command="{Binding SendInputCommand}" />
               </Grid>
 
-              <TextBox IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" BorderThickness="0"
-                       FontFamily="Cascadia Mono, Consolas, DejaVu Sans Mono, Menlo, monospace" FontSize="12"
+              <TextBox Classes="plain" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+                       FontSize="12" Padding="14,2"
                        Text="{Binding ConsoleText}" CaretIndex="{Binding ConsoleCaret, Mode=OneWay}"
                        VerticalContentAlignment="Top" />
             </DockPanel>
@@ -216,11 +353,11 @@
                       IsVisible="{Binding IsTasksPanelShown}" />
 
         <!-- Tasks -->
-        <Border Grid.Column="4" Classes="panel" BorderThickness="1,0,0,0" IsVisible="{Binding IsTasksPanelShown}">
+        <Border Grid.Column="4" Classes="pane" BorderThickness="1,0,0,0" IsVisible="{Binding IsTasksPanelShown}">
           <DockPanel>
-            <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*" Margin="12,8">
-              <TextBlock Classes="panelTitle" Text="Tasks" Margin="0,0,12,0" />
-              <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*" Margin="14,8,10,8">
+              <TextBlock Classes="eyebrow" Text="TASKS" Margin="0,0,12,0" />
+              <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" MinHeight="30" FontSize="13"
                         ItemsSource="{Binding Tasks}" SelectedItem="{Binding SelectedTask}">
                 <ComboBox.ItemTemplate>
                   <DataTemplate x:DataType="vm:ExamTaskItem">
@@ -229,33 +366,37 @@
                 </ComboBox.ItemTemplate>
               </ComboBox>
             </Grid>
-            <Panel>
-              <TextBox IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" BorderThickness="0"
-                       FontFamily="Cascadia Mono, Consolas, DejaVu Sans Mono, Menlo, monospace"
-                       Text="{Binding SelectedTaskText}" IsVisible="{Binding IsSelectedTaskTextShown}" />
+            <Border Margin="10,0,10,10" CornerRadius="10" ClipToBounds="True"
+                    Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource LineBrush}" BorderThickness="1">
+              <Panel>
+                <TextBox Classes="plain" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
+                         FontSize="13" Padding="14,12"
+                         Text="{Binding SelectedTaskText}" IsVisible="{Binding IsSelectedTaskTextShown}" />
 
-              <TextBlock Classes="info" Margin="12" Text="Drawing the task sheet."
-                         IsVisible="{Binding IsDrawingTask}" />
+                <TextBlock Classes="info" Margin="14" Text="Drawing the task sheet."
+                           IsVisible="{Binding IsDrawingTask}" />
 
-              <!-- A PDF task, drawn from memory: the decrypted file never reaches the disk. -->
-              <ScrollViewer IsVisible="{Binding IsSelectedTaskPdf}">
-                <ItemsControl ItemsSource="{Binding TaskPages}" Margin="8">
-                  <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                      <StackPanel Spacing="8" />
-                    </ItemsPanelTemplate>
-                  </ItemsControl.ItemsPanel>
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                      <Image Source="{Binding}" Stretch="Uniform" />
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-              </ScrollViewer>
+                <!-- A PDF task, drawn from memory: the decrypted file never reaches the disk. -->
+                <ScrollViewer IsVisible="{Binding IsSelectedTaskPdf}">
+                  <ItemsControl ItemsSource="{Binding TaskPages}" Margin="8">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <StackPanel Spacing="8" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Image Source="{Binding}" Stretch="Uniform" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </ScrollViewer>
 
-              <TextBlock Classes="info" Margin="12" IsVisible="{Binding IsSelectedTaskBinary}"
-                         Text="This task file cannot be shown in the application." />
-            </Panel>
+                <TextBlock Classes="info" Margin="14" IsVisible="{Binding IsSelectedTaskBinary}"
+                           Text="This task file cannot be shown in the application." />
+              </Panel>
+            </Border>
           </DockPanel>
         </Border>
       </Grid>
@@ -263,7 +404,7 @@
 
     <!-- Confirmations are drawn inside the window rather than as dialogs: a separate window would
          take the focus from the locked exam window. -->
-    <Border Background="#99000000" IsVisible="{Binding IsOverlayShown}">
+    <Border Classes="scrim" IsVisible="{Binding IsOverlayShown}">
       <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center">
         <Panel>
           <StackPanel Classes="form" IsVisible="{Binding IsConfirmingFinish}">

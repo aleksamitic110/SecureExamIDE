@@ -3,7 +3,7 @@
              xmlns:vm="using:SecureExamIDE.Client.ViewModels.Account"
              x:Class="SecureExamIDE.Client.Views.Account.StartupView"
              x:DataType="vm:StartupViewModel">
-  <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center">
+  <ContentControl Classes="frame">
     <StackPanel Classes="form">
       <TextBlock Classes="title" Text="SecureExamIDE" />
       <ProgressBar IsIndeterminate="True" IsVisible="{Binding !CanRetry}" />
@@ -13,5 +13,5 @@
         <Button Classes="accent" Content="Try again" IsVisible="{Binding CanRetry}" Command="{Binding StartCommand}" />
       </StackPanel>
     </StackPanel>
-  </Border>
+  </ContentControl>
 </UserControl>

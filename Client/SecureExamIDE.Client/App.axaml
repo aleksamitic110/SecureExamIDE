@@ -8,61 +8,326 @@
     <local:ViewLocator />
   </Application.DataTemplates>
 
-  <!-- The warning and success colours are the application's own. Avalonia's Fluent theme has no
-       SystemFillColor* brushes - those names come from WinUI - so a style pointing at them resolved
-       to nothing and every "red" message was drawn in the ordinary text colour. -->
+  <!-- The application's own look, in one place. Every screen is built from the classes styled below
+       (card, item, badge, title, info ...), so the colours here are the only ones there are: a calm
+       editor-like palette in a light and a dark version, with one blue for everything that can be
+       pressed. Avalonia's Fluent theme has no SystemFillColor* brushes - those names come from
+       WinUI - which is why the warning and success colours are defined here as well. -->
   <Application.Resources>
     <ResourceDictionary>
       <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F4F5F7" />
+          <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="SurfaceAltBrush" Color="#F3F4F6" />
+          <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#E9EBEF" />
+          <SolidColorBrush x:Key="LineBrush" Color="#E2E5EA" />
+          <SolidColorBrush x:Key="LineStrongBrush" Color="#CDD2DA" />
+          <SolidColorBrush x:Key="TextBrush" Color="#1B1F24" />
+          <SolidColorBrush x:Key="TextMutedBrush" Color="#5C6470" />
+          <SolidColorBrush x:Key="AccentBrush" Color="#0B63CE" />
+          <SolidColorBrush x:Key="AccentSoftBrush" Color="#E6F0FD" />
+          <SolidColorBrush x:Key="AccentTextBrush" Color="#0A56B3" />
+          <SolidColorBrush x:Key="StatusBarBrush" Color="#0B63CE" />
+          <SolidColorBrush x:Key="ScrimBrush" Color="#730F1728" />
           <SolidColorBrush x:Key="ErrorTextBrush" Color="#C42B1C" />
           <SolidColorBrush x:Key="ErrorBackgroundBrush" Color="#FDE7E9" />
           <SolidColorBrush x:Key="SuccessTextBrush" Color="#0F7B0F" />
           <SolidColorBrush x:Key="SuccessBackgroundBrush" Color="#DFF6DD" />
+          <LinearGradientBrush x:Key="WelcomeBackgroundBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Offset="0" Color="#E8F0FE" />
+            <GradientStop Offset="0.55" Color="#F4F5F7" />
+            <GradientStop Offset="1" Color="#EDE9FE" />
+          </LinearGradientBrush>
+          <BoxShadows x:Key="CardShadow">0 18 48 0 #1F101828, 0 2 6 0 #0F101828</BoxShadows>
+          <BoxShadows x:Key="ItemShadow">0 1 2 0 #0D101828</BoxShadows>
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="AppBackgroundBrush" Color="#181818" />
+          <SolidColorBrush x:Key="SurfaceBrush" Color="#1F1F1F" />
+          <SolidColorBrush x:Key="SurfaceAltBrush" Color="#181818" />
+          <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#2A2D2E" />
+          <SolidColorBrush x:Key="LineBrush" Color="#2B2B2B" />
+          <SolidColorBrush x:Key="LineStrongBrush" Color="#3C3C3C" />
+          <SolidColorBrush x:Key="TextBrush" Color="#D7DAE0" />
+          <SolidColorBrush x:Key="TextMutedBrush" Color="#9BA1AC" />
+          <SolidColorBrush x:Key="AccentBrush" Color="#2F81F7" />
+          <SolidColorBrush x:Key="AccentSoftBrush" Color="#16304F" />
+          <SolidColorBrush x:Key="AccentTextBrush" Color="#79B8FF" />
+          <SolidColorBrush x:Key="StatusBarBrush" Color="#0B63CE" />
+          <SolidColorBrush x:Key="ScrimBrush" Color="#A6000000" />
           <SolidColorBrush x:Key="ErrorTextBrush" Color="#FF99A4" />
           <SolidColorBrush x:Key="ErrorBackgroundBrush" Color="#442726" />
           <SolidColorBrush x:Key="SuccessTextBrush" Color="#6CCB5F" />
-          <SolidColorBrush x:Key="SuccessBackgroundBrush" Color="#393D1B" />
+          <SolidColorBrush x:Key="SuccessBackgroundBrush" Color="#1F3A1F" />
+          <LinearGradientBrush x:Key="WelcomeBackgroundBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Offset="0" Color="#10233F" />
+            <GradientStop Offset="0.55" Color="#181818" />
+            <GradientStop Offset="1" Color="#241B3F" />
+          </LinearGradientBrush>
+          <BoxShadows x:Key="CardShadow">0 18 48 0 #66000000, 0 2 6 0 #40000000</BoxShadows>
+          <BoxShadows x:Key="ItemShadow">0 1 2 0 #33000000</BoxShadows>
         </ResourceDictionary>
       </ResourceDictionary.ThemeDictionaries>
+
+      <LinearGradientBrush x:Key="BrandBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+        <GradientStop Offset="0" Color="#2F81F7" />
+        <GradientStop Offset="1" Color="#6D4AFF" />
+      </LinearGradientBrush>
+
+      <!-- Consolas first: Cascadia ships as one variable-weight file, which is drawn heavier than
+           regular here, and code set in a bold face is tiring to read for three hours. -->
+      <FontFamily x:Key="CodeFont">Consolas, Cascadia Mono, DejaVu Sans Mono, Menlo, monospace</FontFamily>
+
+      <!-- The few pictures the lists use, drawn as lines so they take the colour of what they sit on. -->
+      <StreamGeometry x:Key="IconExam">M5,2 H12 L16,6 V18 H5 Z M12,2 V6 H16 M8,10.5 H13 M8,14 H13</StreamGeometry>
+      <StreamGeometry x:Key="IconClock">M10,2 A8,8 0 1 0 10,18 A8,8 0 1 0 10,2 M10,5.5 V10 L13,12</StreamGeometry>
+      <StreamGeometry x:Key="IconPerson">M10,3 A3.2,3.2 0 1 0 10,9.4 A3.2,3.2 0 1 0 10,3 M3.5,18 C3.5,13.8 6.5,12 10,12 C13.5,12 16.5,13.8 16.5,18</StreamGeometry>
+      <StreamGeometry x:Key="IconBox">M3,6 L10,2.5 L17,6 V14 L10,17.5 L3,14 Z M3,6 L10,9.5 L17,6 M10,9.5 V17.5</StreamGeometry>
+      <StreamGeometry x:Key="IconLaptop">M4,4 H16 V13 H4 Z M2,16 H18</StreamGeometry>
     </ResourceDictionary>
   </Application.Resources>
 
   <Application.Styles>
-    <FluentTheme />
+    <!-- The stock controls take their accent, their page colour and their surfaces from here. -->
+    <FluentTheme>
+      <FluentTheme.Palettes>
+        <ColorPaletteResources x:Key="Light" Accent="#0B63CE" RegionColor="#F4F5F7" AltHigh="#FFFFFF"
+                               BaseHigh="#1B1F24" ErrorText="#C42B1C" />
+        <ColorPaletteResources x:Key="Dark" Accent="#2F81F7" RegionColor="#181818" AltHigh="#1F1F1F"
+                               BaseHigh="#D7DAE0" ErrorText="#FF99A4" />
+      </FluentTheme.Palettes>
+    </FluentTheme>
     <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
 
-    <!-- The account screens share one look: a centred card holding a narrow form. -->
-    <Style Selector="Border.card">
-      <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundAltHighBrush}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource SystemControlForegroundBaseLowBrush}" />
-      <Setter Property="BorderThickness" Value="1" />
+    <!-- Controls -->
+    <Style Selector="Window">
+      <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}" />
+    </Style>
+
+    <Style Selector="Button">
       <Setter Property="CornerRadius" Value="8" />
-      <Setter Property="Padding" Value="32" />
+      <Setter Property="Padding" Value="14,8" />
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineStrongBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineStrongBrush}" />
+    </Style>
+    <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource LineBrush}" />
+    </Style>
+    <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    </Style>
+
+    <Style Selector="Button.accent">
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.accent:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="Opacity" Value="0.88" />
+    </Style>
+    <Style Selector="Button.accent:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="Opacity" Value="0.76" />
+    </Style>
+    <Style Selector="Button.accent:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource LineStrongBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineStrongBrush}" />
+    </Style>
+
+    <!-- A button that is only words until the pointer is over it: for the quiet ways out of a page. -->
+    <Style Selector="Button.quiet">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+      <Setter Property="Padding" Value="10,6" />
+    </Style>
+    <Style Selector="Button.quiet:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+
+    <Style Selector="TextBox">
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="12,9" />
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineStrongBrush}" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+    </Style>
+    <Style Selector="TextBox:disabled /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineStrongBrush}" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+    </Style>
+    <Style Selector="CalendarDatePicker">
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineStrongBrush}" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+    </Style>
+    <Style Selector="ProgressBar">
+      <Setter Property="MinHeight" Value="4" />
+      <Setter Property="Height" Value="4" />
+      <Setter Property="CornerRadius" Value="2" />
+    </Style>
+
+    <!-- Surfaces -->
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="18" />
+      <Setter Property="Padding" Value="36" />
       <Setter Property="Margin" Value="24" />
-      <Setter Property="Width" Value="440" />
+      <Setter Property="Width" Value="460" />
+      <Setter Property="BoxShadow" Value="{DynamicResource CardShadow}" />
     </Style>
+    <Style Selector="Border.item">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Padding" Value="20,16" />
+      <Setter Property="BoxShadow" Value="{DynamicResource ItemShadow}" />
+    </Style>
+    <Style Selector="Border.item:pointerover">
+      <Setter Property="BorderBrush" Value="{DynamicResource LineStrongBrush}" />
+    </Style>
+
+    <!-- A list used as a menu - the files of a workspace, the files of a solution: the chosen row is
+         tinted rather than filled with the accent colour. -->
+    <Style Selector="ListBox.menu">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ListBox.menu ListBoxItem">
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Margin" Value="6,1" />
+    </Style>
+    <Style Selector="ListBox.menu ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+    </Style>
+    <Style Selector="ListBox.menu ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+    </Style>
+    <Style Selector="ListBox.menu ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+    </Style>
+
+    <!-- The picture at the head of a row in a list. -->
+    <Style Selector="Border.tile">
+      <Setter Property="Width" Value="44" />
+      <Setter Property="Height" Value="44" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Margin" Value="0,0,16,0" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+    </Style>
+    <Style Selector="Border.tile Path">
+      <Setter Property="Width" Value="20" />
+      <Setter Property="Height" Value="20" />
+      <Setter Property="Stretch" Value="None" />
+      <Setter Property="Stroke" Value="{DynamicResource AccentTextBrush}" />
+      <Setter Property="StrokeThickness" Value="1.6" />
+      <Setter Property="StrokeLineCap" Value="Round" />
+      <Setter Property="StrokeJoin" Value="Round" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- What stands behind a question asked inside the window. -->
+    <Style Selector="Border.scrim">
+      <Setter Property="Background" Value="{DynamicResource ScrimBrush}" />
+    </Style>
+
+    <!-- The first and the last screens a person sees: the account pages. -->
+    <Style Selector="Panel.welcome">
+      <Setter Property="Background" Value="{DynamicResource WelcomeBackgroundBrush}" />
+    </Style>
+
+    <!-- A page of the signed-in application: one column, not stretched across a wide screen. -->
+    <Style Selector="DockPanel.page">
+      <Setter Property="Margin" Value="40,28,40,28" />
+      <Setter Property="MaxWidth" Value="1120" />
+    </Style>
+
+    <Style Selector="Border.badge">
+      <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+      <Setter Property="CornerRadius" Value="999" />
+      <Setter Property="Padding" Value="10,3" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.badge TextBlock">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource AccentTextBrush}" />
+    </Style>
+
     <Style Selector="StackPanel.form">
-      <Setter Property="Spacing" Value="12" />
+      <Setter Property="Spacing" Value="14" />
     </Style>
+
+    <!-- Words -->
     <Style Selector="TextBlock.title">
-      <Setter Property="FontSize" Value="24" />
+      <Setter Property="FontSize" Value="26" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="LetterSpacing" Value="-0.4" />
+    </Style>
+    <Style Selector="TextBlock.heading">
+      <Setter Property="FontSize" Value="18" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="LetterSpacing" Value="-0.2" />
+    </Style>
+    <Style Selector="TextBlock.itemTitle">
+      <Setter Property="FontSize" Value="16" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
     <Style Selector="TextBlock.info">
       <Setter Property="TextWrapping" Value="Wrap" />
-      <Setter Property="Opacity" Value="0.75" />
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+      <Setter Property="LineHeight" Value="20" />
     </Style>
     <Style Selector="TextBlock.label">
-      <Setter Property="Margin" Value="0,4,0,-6" />
-      <Setter Property="Opacity" Value="0.75" />
+      <Setter Property="Margin" Value="2,4,0,-8" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+    </Style>
+    <!-- The small capitals over a panel of the exam workspace, as an editor names its panels. -->
+    <Style Selector="TextBlock.eyebrow">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="LetterSpacing" Value="0.9" />
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style Selector="TextBlock.error">
       <Setter Property="TextWrapping" Value="Wrap" />
       <Setter Property="Foreground" Value="{DynamicResource ErrorTextBrush}" />
     </Style>
+    <Style Selector="TextBlock.success">
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="Foreground" Value="{DynamicResource SuccessTextBrush}" />
+    </Style>
+
     <!-- A line of the activity log that suggests cheating: tinted as well as red and bold, so it is
          found at a glance in a long log and still stands out on a printed page. -->
     <Style Selector="Border.flagged">
@@ -72,40 +337,49 @@
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="Foreground" Value="{DynamicResource ErrorTextBrush}" />
     </Style>
-    <Style Selector="TextBlock.heading">
-      <Setter Property="FontSize" Value="18" />
-      <Setter Property="FontWeight" Value="SemiBold" />
-    </Style>
-    <Style Selector="TextBlock.itemTitle">
-      <Setter Property="FontSize" Value="16" />
-      <Setter Property="FontWeight" Value="SemiBold" />
-    </Style>
-    <Style Selector="TextBlock.success">
-      <Setter Property="TextWrapping" Value="Wrap" />
-      <Setter Property="Foreground" Value="{DynamicResource SuccessTextBrush}" />
-    </Style>
-    <Style Selector="Border.item">
-      <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundAltHighBrush}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource SystemControlForegroundBaseLowBrush}" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="6" />
-      <Setter Property="Padding" Value="16,12" />
-    </Style>
-    <Style Selector="Border.badge">
-      <Setter Property="Background" Value="{DynamicResource SuccessBackgroundBrush}" />
-      <Setter Property="CornerRadius" Value="4" />
-      <Setter Property="Padding" Value="8,2" />
-      <Setter Property="VerticalAlignment" Value="Center" />
-    </Style>
-    <Style Selector="TextBox.code.wide">
-      <Setter Property="FontSize" Value="22" />
-      <Setter Property="LetterSpacing" Value="2" />
-    </Style>
+
     <Style Selector="TextBox.code">
       <Setter Property="FontSize" Value="28" />
-      <Setter Property="FontFamily" Value="Consolas, Menlo, monospace" />
+      <Setter Property="FontFamily" Value="{StaticResource CodeFont}" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="LetterSpacing" Value="8" />
+      <Setter Property="MinHeight" Value="60" />
+    </Style>
+    <!-- After the one above on purpose: of two styles that match, the later one wins. -->
+    <Style Selector="TextBox.code.wide">
+      <Setter Property="FontSize" Value="21" />
+      <Setter Property="LetterSpacing" Value="1.5" />
+    </Style>
+
+    <!-- The frame of every screen that stands alone - signing in, registering, entering a code: the
+         application's mark over one card, on the welcome background. A screen says what goes in the
+         card and nothing else. -->
+    <Style Selector="ContentControl.frame">
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Panel Background="{DynamicResource WelcomeBackgroundBrush}">
+            <ScrollViewer>
+              <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,28">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+                  <Border Width="40" Height="40" CornerRadius="11" Background="{StaticResource BrandBrush}">
+                    <TextBlock Text="&lt;/&gt;" FontFamily="{StaticResource CodeFont}" FontSize="15" FontWeight="Bold"
+                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                  <TextBlock Text="SecureExamIDE" FontSize="21" FontWeight="Bold" LetterSpacing="-0.3"
+                             VerticalAlignment="Center" />
+                </StackPanel>
+                <Border x:Name="PART_Card" Classes="card" Margin="24,20,24,24">
+                  <ContentPresenter Content="{TemplateBinding Content}" />
+                </Border>
+              </StackPanel>
+            </ScrollViewer>
+          </Panel>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="ContentControl.frame.wide /template/ Border#PART_Card">
+      <Setter Property="Width" Value="580" />
     </Style>
   </Application.Styles>
 </Application>

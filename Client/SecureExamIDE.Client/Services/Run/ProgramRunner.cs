@@ -93,7 +93,7 @@ internal sealed class ProgramRunner(TimeProvider timeProvider, ILanguageDrivers 
         CancellationToken cancellationToken)
     {
         output(new RunOutputLine(
-            $"{Path.GetFileName(compile.FileName)} {string.Join(' ', compile.Arguments)}",
+            $"{Path.GetFileName(compile.FileName)} {string.Join(' ', compile.Arguments.Select(Shortened))}",
             RunOutputKind.Notice));
 
         using var process = new Process { StartInfo = StartInfo(compile, request) };
@@ -118,6 +118,13 @@ internal sealed class ProgramRunner(TimeProvider timeProvider, ILanguageDrivers 
 
         return false;
     }
+
+    // What is shown is for reading, not for running: a folder deep inside this computer's own data
+    // directory fills the console and says nothing, so only where it ends is kept.
+    private static string Shortened(string argument) =>
+        Path.IsPathRooted(argument) && argument.Length > 40
+            ? Path.Combine("...", Path.GetFileName(argument))
+            : argument;
 
     private async Task<int?> ExecuteAsync(
         Invocation run,

@@ -3,7 +3,7 @@
              xmlns:vm="using:SecureExamIDE.Client.ViewModels.Account"
              x:Class="SecureExamIDE.Client.Views.Account.VerifyEmailView"
              x:DataType="vm:VerifyEmailViewModel">
-  <Border Classes="card" HorizontalAlignment="Center" VerticalAlignment="Center">
+  <ContentControl Classes="frame">
     <StackPanel Classes="form">
       <TextBlock Classes="title" Text="Confirm your e-mail address" />
       <TextBlock Classes="info" Text="{Binding InfoMessage}" />
@@ -21,5 +21,5 @@
         <Button Content="{Binding ResendLabel}" Command="{Binding ResendCommand}" />
       </StackPanel>
     </StackPanel>
-  </Border>
+  </ContentControl>
 </UserControl>

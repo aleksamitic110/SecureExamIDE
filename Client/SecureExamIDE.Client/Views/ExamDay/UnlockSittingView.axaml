@@ -3,7 +3,7 @@
              xmlns:vm="using:SecureExamIDE.Client.ViewModels.ExamDay"
              x:Class="SecureExamIDE.Client.Views.ExamDay.UnlockSittingView"
              x:DataType="vm:UnlockSittingViewModel">
-  <Border Classes="card" Width="560" HorizontalAlignment="Center" VerticalAlignment="Center">
+  <ContentControl Classes="frame wide">
     <StackPanel Classes="form">
       <TextBlock Classes="title" Text="{Binding ExamTitle}" TextWrapping="Wrap" />
       <TextBlock Classes="info" Text="{Binding Details}" />
@@ -27,5 +27,5 @@
                 IsVisible="{Binding CanEnterCode}" />
       </StackPanel>
     </StackPanel>
-  </Border>
+  </ContentControl>
 </UserControl>
